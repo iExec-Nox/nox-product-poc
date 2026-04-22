@@ -3,27 +3,27 @@ import { describe, it } from "node:test";
 import { network } from "hardhat";
 
 /**
- * Smoke test for the factory: deploys it, pre-computes a vault address via CREATE2, then creates
- * it and checks the emitted address matches.
+ * Smoke test for the factory: deploys a {cUSDC} asset + the factory, pre-computes a vault
+ * address via CREATE2, then creates it and checks the emitted address matches.
  *
- * We do NOT exercise any confidential flow here — that would require a deployed NoxCompute
- * contract. Vault instantiation only hits Ownable's constructor (no Nox calls), so it works on a
- * bare hardhat network.
+ * We do NOT exercise any confidential flow here — that would require a deployed NoxCompute.
+ * Both the {cUSDC} and {ConfidentialERC7540} constructors only set strings / Ownable state
+ * (no Nox calls), so this runs on a bare hardhat network.
  */
 describe("ConfidentialERC7540Factory", async () => {
-  const { viem } = await network.connect();
+  const { viem } = await network.create();
 
   it("deploys and creates a vault at the predicted CREATE2 address", async () => {
+    const asset = await viem.deployContract("cUSDC");
     const factory = await viem.deployContract("ConfidentialERC7540Factory");
 
     const [owner] = await viem.getWalletClients();
-    const fakeAsset = "0x000000000000000000000000000000000000dEaD" as const;
     const salt =
       "0x0000000000000000000000000000000000000000000000000000000000000001" as const;
 
     const predicted = await factory.read.predictVaultAddress([
-      fakeAsset,
-      "cVault USDC",
+      asset.address,
+      "Confidential Vault cUSDC",
       "cvUSDC",
       "",
       owner.account.address,
@@ -31,8 +31,8 @@ describe("ConfidentialERC7540Factory", async () => {
     ]);
 
     const hash = await factory.write.createVault([
-      fakeAsset,
-      "cVault USDC",
+      asset.address,
+      "Confidential Vault cUSDC",
       "cvUSDC",
       "",
       owner.account.address,

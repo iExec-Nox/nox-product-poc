@@ -2,6 +2,14 @@
   "name": "contracts",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "clean": "hardhat clean",
+    "build": "hardhat compile",
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:factory": "hardhat ignition deploy ignition/modules/ConfidentialVaultFactory.ts",
+    "deploy:factory:sepolia": "hardhat ignition deploy --network sepolia ignition/modules/ConfidentialVaultFactory.ts"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-ignition": "^3.1.2",
     "@nomicfoundation/hardhat-toolbox-viem": "^5.0.4",
