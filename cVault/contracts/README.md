@@ -1,57 +1,106 @@
-# Sample Hardhat 3 Beta Project (`node:test` and `viem`)
+# cVault · Confidential Vault contracts
 
-This project showcases a Hardhat 3 Beta project using the native Node.js test runner (`node:test`) and the `viem` library for Ethereum interactions.
+Confidential adaptation of ERC-4626 and EIP-7540, built on top of the Nox confidential-compute
+primitives (`euint256`, `ebool`, …) and the [@iexec-nox/nox-confidential-contracts][nox-conf]
+ERC-7984 implementation.
 
-To learn more about the Hardhat 3 Beta, please visit the [Getting Started guide](https://hardhat.org/docs/getting-started#getting-started-with-hardhat-3). To share your feedback, join our [Hardhat 3 Beta](https://hardhat.org/hardhat3-beta-telegram-group) Telegram group or [open an issue](https://github.com/NomicFoundation/hardhat/issues/new) in our GitHub issue tracker.
+Spec: Confluence page [“PoC 1: Confidential Vault cERC-7984”][spec]
+References: OpenZeppelin [`ERC4626`][oz4626], [EIP-7540][eip7540], [ERC-7984][eip7984].
 
-## Project Overview
+[nox-conf]: https://www.npmjs.com/package/@iexec-nox/nox-confidential-contracts
+[spec]: https://iexecproject.atlassian.net/wiki/spaces/IP/pages/4525195286/Poc+1+Confidential+Vault+cERC-7984
+[oz4626]: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/ERC4626.sol
+[eip7540]: https://eips.ethereum.org/EIPS/eip-7540
+[eip7984]: https://eips.ethereum.org/EIPS/eip-7984
 
-This example project includes:
+### Confidentiality matrix (from the Confluence spec)
 
-- A simple Hardhat configuration file.
-- Foundry-compatible Solidity unit tests.
-- TypeScript integration tests using [`node:test`](nodejs.org/api/test.html), the new Node.js native test runner, and [`viem`](https://viem.sh/).
-- Examples demonstrating how to connect to different types of networks, including locally simulating OP mainnet.
+| Element                           | Confidential? | Implementation                                  |
+| --------------------------------- | ------------- | ----------------------------------------------- |
+| `confidentialBalanceOf(user)`      | yes           | inherited from ERC-7984 (`euint256`)            |
+| `confidentialTotalSupply()`        | yes           | inherited from ERC-7984                         |
+| `confidentialTotalAssets()`        | yes           | `IERC7984(asset).confidentialBalanceOf(this)`   |
+| NAV (`totalAssets / totalSupply`)  | public ratio  | TODO(prod): opt-in `Nox.allowPublicDecryption`  |
+| PnL / IRR / user APY               | always client | computed off-chain with user decryption         |
 
-## Usage
+### PoC simplifications (tagged `TODO(prod)` in code)
 
-### Running Tests
+- **No inflation-attack protection.** OZ uses virtual shares/assets
+  `shares = assets × (totalSupply + 10^offset) / (totalAssets + 1)`. Nox does not expose a
+  confidential `pow` primitive today, so we fall back to a first-deposit bootstrap (`shares =
+  assets` on the very first deposit). A production vault should be seeded by the deployer.
+- **No slippage protection.** TODO(prod).
+- **Sync `mint` / `withdraw`** entry points are not exposed. Only `deposit` (by asset amount) and
+  `redeem` (by share amount) are.
+- **Async claim** takes `(receiver, controller)` and claims the full claimable bucket; the
+  spec-compliant `deposit(assets, receiver, controller)` is a TODO because users cannot know the
+  exact plaintext amount to pass in a confidential setting.
+- **No multi-request support.** Each `controller` has a single pending/claimable bucket per
+  flow; a second `requestDeposit` before approval simply accumulates.
+- **NAV disclosure.** Not implemented. The vault operator will need to call
+  `Nox.allowPublicDecryption` on both `confidentialTotalAssets()` and
+  `confidentialTotalSupply()` handles (or on the pre-computed ratio) before a frontend can show
+  NAV / APY.
+- **Factory** is plain `new`; use CREATE2 / ERC-1167 clones in prod.
 
-To run all the tests in the project, execute the following command:
+## Flows
 
-```shell
-npx hardhat test
+### Sync deposit (`ConfidentialERC4626`)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Asset as IERC7984 (cUSDC)
+    participant Vault as ConfidentialERC4626
+
+    User->>Asset: setOperator(Vault, until)
+    User->>Vault: deposit(encAssets, proof, receiver)
+    Vault->>Asset: confidentialTransferFrom(User, Vault, assets)
+    Asset-->>Vault: transferred (euint256)
+    Vault->>Vault: shares = transferred * totalSupply / totalAssets
+    Vault->>Vault: _mint(receiver, shares)
+    Vault-->>User: shares (euint256)
 ```
 
-You can also selectively run the Solidity or `node:test` tests:
+### Async deposit (`ConfidentialERC7540`)
 
-```shell
-npx hardhat test solidity
-npx hardhat test nodejs
+```mermaid
+sequenceDiagram
+    participant User
+    participant Owner as Vault owner (Ownable)
+    participant Vault as ConfidentialERC7540
+    participant Asset as IERC7984 (cUSDC)
+
+    User->>Asset: setOperator(Vault, until)
+    User->>Vault: requestDeposit(encAssets, proof, controller, owner)
+    Vault->>Asset: confidentialTransferFrom(owner, Vault, assets)
+    Note over Vault: pendingDepositAssets[controller] += transferred
+
+    Owner->>Vault: approveDeposit(encAssets, proof, controller)
+    Note over Vault: shares = assets * totalSupply / totalAssets,<br/>mint shares to Vault,<br/>pending[-=] / claimable[+=]
+
+    User->>Vault: claimDeposit(receiver, controller)
+    Vault->>Vault: transfer(Vault → receiver, claimableShares)
+    Vault-->>User: shares
 ```
 
-### Make a deployment to Sepolia
+## Build
 
-This project includes an example Ignition module to deploy the contract. You can deploy this module to a locally simulated chain or to Sepolia.
-
-To run the deployment to a local chain:
-
-```shell
-npx hardhat ignition deploy ignition/modules/Counter.ts
+```bash
+cd cVault/contracts
+npm install
+npx hardhat compile
 ```
 
-To run the deployment to Sepolia, you need an account with funds to send the transaction. The provided Hardhat configuration includes a Configuration Variable called `SEPOLIA_PRIVATE_KEY`, which you can use to set the private key of the account you want to use.
+Running scenarios end-to-end requires a chain with the Nox `NoxCompute` contract deployed (Arbitrum
+Sepolia, or a local fork with the address at `0x44C0…8236`). See
+[`@iexec-nox/nox-protocol-contracts`](https://www.npmjs.com/package/@iexec-nox/nox-protocol-contracts)
+for the deployment scripts and the addresses.
 
-You can set the `SEPOLIA_PRIVATE_KEY` variable using the `hardhat-keystore` plugin or by setting it as an environment variable.
+## Deploy the factory
 
-To set the `SEPOLIA_PRIVATE_KEY` config variable using `hardhat-keystore`:
-
-```shell
-npx hardhat keystore set SEPOLIA_PRIVATE_KEY
-```
-
-After setting the variable, you can run the deployment with the Sepolia network:
-
-```shell
-npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
+```bash
+npx hardhat ignition deploy ignition/modules/ConfidentialVaultFactory.ts
+# then from a script:
+#   factory.createVault(assetAddress, "cVault USDC", "cvUSDC", "", owner)
 ```
