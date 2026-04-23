@@ -15,20 +15,20 @@ References: OpenZeppelin [`ERC4626`][oz4626], [EIP-7540][eip7540], [ERC-7984][ei
 
 ### Confidentiality matrix (from the Confluence spec)
 
-| Element                           | Confidential? | Implementation                                  |
-| --------------------------------- | ------------- | ----------------------------------------------- |
-| `confidentialBalanceOf(user)`      | yes           | inherited from ERC-7984 (`euint256`)            |
-| `confidentialTotalSupply()`        | yes           | inherited from ERC-7984                         |
-| `confidentialTotalAssets()`        | yes           | `IERC7984(asset).confidentialBalanceOf(this)`   |
-| NAV (`totalAssets / totalSupply`)  | public ratio  | TODO(prod): opt-in `Nox.allowPublicDecryption`  |
-| PnL / IRR / user APY               | always client | computed off-chain with user decryption         |
+| Element                           | Confidential? | Implementation                                 |
+| --------------------------------- | ------------- | ---------------------------------------------- |
+| `confidentialBalanceOf(user)`     | yes           | inherited from ERC-7984 (`euint256`)           |
+| `confidentialTotalSupply()`       | yes           | inherited from ERC-7984                        |
+| `confidentialTotalAssets()`       | yes           | `IERC7984(asset).confidentialBalanceOf(this)`  |
+| NAV (`totalAssets / totalSupply`) | public ratio  | TODO(prod): opt-in `Nox.allowPublicDecryption` |
+| PnL / IRR / user APY              | always client | computed off-chain with user decryption        |
 
 ### PoC simplifications (tagged `TODO(prod)` in code)
 
 - **No inflation-attack protection.** OZ uses virtual shares/assets
   `shares = assets × (totalSupply + 10^offset) / (totalAssets + 1)`. Nox does not expose a
   confidential `pow` primitive today, so we fall back to a first-deposit bootstrap (`shares =
-  assets` on the very first deposit). A production vault should be seeded by the deployer.
+assets` on the very first deposit). A production vault should be seeded by the deployer.
 - **No slippage protection.** TODO(prod).
 - **Sync `mint` / `withdraw`** entry points are not exposed. Only `deposit` (by asset amount) and
   `redeem` (by share amount) are.
@@ -103,4 +103,16 @@ for the deployment scripts and the addresses.
 npx hardhat ignition deploy ignition/modules/ConfidentialVaultFactory.ts
 # then from a script:
 #   factory.createVault(assetAddress, "cVault USDC", "cvUSDC", "", owner)
+```
+
+## Verification
+
+Verify deployed contracts on Etherscan. Requires `ETHERSCAN_API_KEY`:
+
+```bash
+pnpm run verify:factory:arbitrumSepolia
+```
+
+```bash
+npm run verify:vault:arbitrumSepolia -- 0xVault... 0xAsset... "MyVault" "MV" "" 0xOwner...
 ```

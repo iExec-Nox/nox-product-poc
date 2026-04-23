@@ -72,12 +72,33 @@ interface IConfidentialERC7540 {
     ) external returns (uint256 requestId);
 
     /**
+     * @dev Same as the external-input variant of {requestDeposit}, but takes an already-
+     * registered `euint256` handle. The caller must already hold ACL access to `assets`. Useful
+     * for on-chain composition / scripting against existing handles.
+     */
+    function requestDeposit(
+        euint256 assets,
+        address controller,
+        address owner
+    ) external returns (uint256 requestId);
+
+    /**
      * @dev Transfers `encryptedShares` from `owner` into the vault and records them as a pending
      * redeem request for `controller`. The shares are escrowed by the vault until approval.
      */
     function requestRedeem(
         externalEuint256 encryptedShares,
         bytes calldata inputProof,
+        address controller,
+        address owner
+    ) external returns (uint256 requestId);
+
+    /**
+     * @dev Same as the external-input variant of {requestRedeem}, but takes an already-
+     * registered `euint256` handle.
+     */
+    function requestRedeem(
+        euint256 shares,
         address controller,
         address owner
     ) external returns (uint256 requestId);
