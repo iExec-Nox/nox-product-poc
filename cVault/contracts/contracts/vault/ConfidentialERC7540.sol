@@ -5,6 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC7984} from "@iexec-nox/nox-confidential-contracts/contracts/interfaces/IERC7984.sol";
 import {
     Nox,
+    ebool,
     euint256,
     externalEuint256
 } from "@iexec-nox/nox-protocol-contracts/contracts/sdk/Nox.sol";
@@ -213,112 +214,71 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
     // ============ Approve Phase (onlyOwner) ============
 
     /**
-     * @dev Converts `assets` from `owner_`'s pending deposit bucket to shares at the current NAV
-     * and credits them to the claimable bucket. Caller must already hold ACL on `assets`.
-     *
-     * TODO(prod): this does not cap against the actual pending balance; if the Ownable owner
-     * approves more than what is pending, the underlying {Nox.sub} will underflow and the pending
-     * bucket will reset to encrypted 0 (safeSub-like behaviour). A stricter flow would use
-     * {Nox.safeSub} and bubble the failure up.
-     */
-    /// @inheritdoc IConfidentialERC7540
-    function approveDeposit(euint256 assets, address owner_) external override onlyOwner {
-        require(
-            Nox.isAllowed(assets, msg.sender),
-            ERC7984UnauthorizedUseOfEncryptedAmount(assets, msg.sender)
-        );
-        _approveDeposit(assets, owner_);
-    }
-
-    /// @inheritdoc IConfidentialERC7540
-    function approveDeposit(
-        externalEuint256 encryptedAssets,
-        bytes calldata inputProof,
-        address owner_
-    ) external override onlyOwner {
-        euint256 assets = Nox.fromExternal(encryptedAssets, inputProof);
-        _approveDeposit(assets, owner_);
-    }
-
-    /**
-     * @dev Converts `shares` from `owner_`'s pending redeem bucket to assets at the current NAV
-     * and credits them to the claimable bucket. Caller must already hold ACL on `shares`.
-     *
-     * TODO(prod): same underflow TODO as {approveDeposit}. A prod flow would use {Nox.safeSub}.
-     */
-    /// @inheritdoc IConfidentialERC7540
-    function approveRedeem(euint256 shares, address owner_) external override onlyOwner {
-        require(
-            Nox.isAllowed(shares, msg.sender),
-            ERC7984UnauthorizedUseOfEncryptedAmount(shares, msg.sender)
-        );
-        _approveRedeem(shares, owner_);
-    }
-
-    /// @inheritdoc IConfidentialERC7540
-    function approveRedeem(
-        externalEuint256 encryptedShares,
-        bytes calldata inputProof,
-        address owner_
-    ) external override onlyOwner {
-        euint256 shares = Nox.fromExternal(encryptedShares, inputProof);
-        _approveRedeem(shares, owner_);
-    }
-
-    // ============ Internal approve helpers ============
-
-    /**
      * @dev Moves `assets` from `owner_`'s pending deposit bucket to their claimable deposit
      * bucket. No conversion, no mint — shares are only created at claim time (async `deposit`).
      *
-     * TODO(prod): this does not cap against the actual pending balance. If the Ownable owner
-     * approves more than what is pending, the underlying {Nox.sub} will underflow and the
-     * pending bucket will reset to 0 (safeSub-like behaviour). A stricter flow would use
-     * {Nox.safeSub} and bubble the failure up.
+     * Uses {Nox.safeSub} so that an approval larger than the current pending bucket is a no-op
+     * (pending stays unchanged, 0 is credited to claimable) instead of underflowing the bucket.
+     * {Nox.select} threads the success flag through the state updates. The vault always has ACL
+     * on `_pendingDepositAssets[owner_]` via `Nox.allowThis` done in `_requestDeposit`; the
+     * admin is trusted (via `onlyOwner`) to pass a legitimate handle, typically read fresh from
+     * `pendingDepositRequest(owner_)`.
      */
-    function _approveDeposit(euint256 assets, address owner_) internal {
+    /// @inheritdoc IConfidentialERC7540
+    function approveDeposit(euint256 assets, address owner_) external override onlyOwner {
         require(owner_ != address(0), ConfidentialERC7540ZeroAddress());
         Nox.allowThis(assets);
 
-        euint256 newPending = Nox.sub(_pendingDepositAssets[owner_], assets);
+        (ebool success, euint256 newPending) = Nox.safeSub(
+            _pendingDepositAssets[owner_],
+            assets
+        );
+        newPending = Nox.select(success, newPending, _pendingDepositAssets[owner_]);
         _pendingDepositAssets[owner_] = newPending;
         Nox.allowThis(newPending);
         Nox.allow(newPending, owner());
         Nox.allow(newPending, owner_);
 
-        euint256 newClaimable = Nox.add(_claimableDepositAssets[owner_], assets);
+        // Only credit the claimable bucket with what actually came out of pending.
+        euint256 approved = Nox.select(success, assets, Nox.toEuint256(0));
+        euint256 newClaimable = Nox.add(_claimableDepositAssets[owner_], approved);
         _claimableDepositAssets[owner_] = newClaimable;
         Nox.allowThis(newClaimable);
         Nox.allow(newClaimable, owner());
         Nox.allow(newClaimable, owner_);
 
-        emit DepositApproved(owner_, assets);
+        emit DepositApproved(owner_, approved);
     }
 
     /**
      * @dev Moves `shares` from `owner_`'s pending redeem bucket to their claimable redeem
      * bucket. Shares stay escrowed in the vault (from the earlier {requestRedeem}); they are
-     * burned at claim time (async `redeem`).
-     *
-     * TODO(prod): same underflow TODO as {_approveDeposit}.
+     * burned at claim time (async `redeem`). Same {Nox.safeSub} + {Nox.select} pattern as
+     * {approveDeposit}.
      */
-    function _approveRedeem(euint256 shares, address owner_) internal {
+    /// @inheritdoc IConfidentialERC7540
+    function approveRedeem(euint256 shares, address owner_) external override onlyOwner {
         require(owner_ != address(0), ConfidentialERC7540ZeroAddress());
         Nox.allowThis(shares);
 
-        euint256 newPending = Nox.sub(_pendingRedeemShares[owner_], shares);
+        (ebool success, euint256 newPending) = Nox.safeSub(
+            _pendingRedeemShares[owner_],
+            shares
+        );
+        newPending = Nox.select(success, newPending, _pendingRedeemShares[owner_]);
         _pendingRedeemShares[owner_] = newPending;
         Nox.allowThis(newPending);
         Nox.allow(newPending, owner());
         Nox.allow(newPending, owner_);
 
-        euint256 newClaimable = Nox.add(_claimableRedeemShares[owner_], shares);
+        euint256 approved = Nox.select(success, shares, Nox.toEuint256(0));
+        euint256 newClaimable = Nox.add(_claimableRedeemShares[owner_], approved);
         _claimableRedeemShares[owner_] = newClaimable;
         Nox.allowThis(newClaimable);
         Nox.allow(newClaimable, owner());
         Nox.allow(newClaimable, owner_);
 
-        emit RedeemApproved(owner_, shares);
+        emit RedeemApproved(owner_, approved);
     }
 
     // ============ Claim Phase ============

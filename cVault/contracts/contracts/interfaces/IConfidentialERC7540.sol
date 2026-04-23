@@ -112,31 +112,10 @@ interface IConfidentialERC7540 {
     function approveDeposit(euint256 assets, address owner) external;
 
     /**
-     * @dev Convenience overload: same as {approveDeposit}, but takes an externally-encrypted
-     * amount + input proof so the owner does not need a separate transaction to register the
-     * handle.
-     */
-    function approveDeposit(
-        externalEuint256 encryptedAssets,
-        bytes calldata inputProof,
-        address owner
-    ) external;
-
-    /**
      * @dev Moves `shares` from `owner`'s pending redeem into their claimable redeem bucket.
      * Only callable by the vault's Ownable owner. The conversion to assets happens at claim time.
      */
     function approveRedeem(euint256 shares, address owner) external;
-
-    /**
-     * @dev Convenience overload: same as {approveRedeem}, but takes an externally-encrypted
-     * amount + input proof.
-     */
-    function approveRedeem(
-        externalEuint256 encryptedShares,
-        bytes calldata inputProof,
-        address owner
-    ) external;
 
     // ============ Claim Phase ============
 

@@ -10,6 +10,8 @@
     "deploy:factory": "hardhat ignition deploy ignition/modules/ConfidentialVaultFactory.ts --build-profile production",
     "deploy:factory:arbitrumSepolia": "dotenv -e .env -- hardhat ignition deploy --network arbitrumSepolia --deployment-id arbitrumSepolia ignition/modules/ConfidentialVaultFactory.ts --build-profile production --verify",
     "deploy:vault:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/deployVault.ts",
+    "vault:request:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/requestDeposit.ts",
+    "vault:claim:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/claimDeposit.ts",
     "vault:lifecycle:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/vaultLifecycle.ts",
     "verify:factory": "hardhat ignition verify arbitrumSepolia --network arbitrumSepolia",
     "verify:vault": "dotenv -e .env -- hardhat verify --network arbitrumSepolia"

@@ -1,21 +1,21 @@
 /**
- * Full async vault lifecycle in a single run, for end-to-end demos where one EOA plays all
- * three roles: depositor, vault Ownable owner, claimer.
+ * Phase 1 of the async vault lifecycle — wraps USDC into cUSDC and submits a `requestDeposit`
+ * to the vault. After this script runs the deposit sits in the `pending` bucket and is waiting
+ * for the vault Ownable owner to call `approveDeposit`.
  *
- *   USDC  →  wrap into cUSDC  →  requestDeposit (pending)  →  approveDeposit (claimable)
- *         →  deposit (claimed, shares minted)
+ *   USDC → wrap into cUSDC → requestDeposit (pending)
  *
- * For realistic flows with distinct actors, use the split scripts instead:
- *   - `scripts/requestDeposit.ts`  (user side, phase 1)
- *   - `scripts/claimDeposit.ts`    (user side, phase 3, after the owner approved)
+ * Anyone can run this as a depositor. The depositor is the EOA derived from
+ * `VAULT_OWNER_PRIVATE_KEY` (the signer). It is used as both `owner_` and `controller` in the
+ * request; it does NOT need to be the vault's Ownable `owner()` (that role only matters for
+ * `approveDeposit`).
  *
  * Env (loaded by dotenv-cli from .env):
- *   - VAULT_OWNER_PRIVATE_KEY   (signer = depositor + Ownable owner + claimer)
+ *   - VAULT_OWNER_PRIVATE_KEY   (signer = depositor)
  *   - CUSDC_ADDRESS             (deployed `ERC20ToERC7984Wrapper` cUSDC)
  *   - VAULT_ADDRESS             (deployed ConfidentialERC7540)
  *
- * The vault MUST have been deployed with the signer as `initialOwner`, otherwise
- * `approveDeposit` will revert with `OwnableUnauthorizedAccount`.
+ * Prerequisites: the signer must hold at least `DEPOSIT_AMOUNT` of the underlying USDC.
  */
 
 import { network } from "hardhat";
@@ -38,8 +38,9 @@ const DEPOSIT_AMOUNT = 100_000n; // 0.1 USDC
 const { viem } = await network.create("arbitrumSepolia");
 const publicClient = await viem.getPublicClient();
 const [wallet] = await viem.getWalletClients();
+// Depositor = signer. `controller` and `owner_` in the request are both the signer itself.
 const OWNER = getAddress(wallet.account.address);
-console.log("Signer (all roles):", OWNER);
+console.log("Depositor:", OWNER);
 
 const wrapperAbi = parseAbi([
   "function underlying() external view returns (address)",
@@ -65,30 +66,6 @@ const vaultRequestDepositAbi = [
       { name: "owner", type: "address" },
     ],
     outputs: [{ type: "uint256" }],
-  },
-] as const;
-const vaultApproveDepositAbi = [
-  {
-    type: "function",
-    name: "approveDeposit",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "assets", type: "bytes32" },
-      { name: "owner", type: "address" },
-    ],
-    outputs: [],
-  },
-] as const;
-const vaultDepositClaimAbi = [
-  {
-    type: "function",
-    name: "deposit",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "receiver", type: "address" },
-      { name: "controller", type: "address" },
-    ],
-    outputs: [{ type: "bytes32" }],
   },
 ] as const;
 
@@ -118,7 +95,7 @@ if (usdcBal < DEPOSIT_AMOUNT) {
 }
 
 // ─── 1. Approve cUSDC to spend USDC ─────────────────────────────────────────────
-console.log("\n[1/8] Approve USDC for cUSDC wrapper");
+console.log("\n[1/6] Approve USDC for cUSDC wrapper");
 const approveUsdcTx = await wallet.writeContract({
   address: USDC,
   abi: erc20Abi,
@@ -129,7 +106,7 @@ await publicClient.waitForTransactionReceipt({ hash: approveUsdcTx });
 log("approve tx:", approveUsdcTx);
 
 // ─── 2. Wrap USDC → cUSDC ────────────────────────────────────────────────────────
-console.log("\n[2/8] cUSDC.wrap(OWNER, amount)");
+console.log("\n[2/6] cUSDC.wrap(OWNER, amount)");
 const wrapTx = await wallet.writeContract({
   address: CUSDC,
   abi: wrapperAbi,
@@ -140,7 +117,7 @@ await publicClient.waitForTransactionReceipt({ hash: wrapTx });
 log("wrap tx:", wrapTx);
 
 // ─── 3. Read the freshly-minted encrypted balance handle ────────────────────────
-console.log("\n[3/8] Read encrypted cUSDC balance handle");
+console.log("\n[3/6] Read encrypted cUSDC balance handle");
 const balanceHandle = (await publicClient.readContract({
   address: CUSDC,
   abi: wrapperAbi,
@@ -150,7 +127,7 @@ const balanceHandle = (await publicClient.readContract({
 log("balance handle:", balanceHandle);
 
 // ─── 4. Set vault as operator on cUSDC ──────────────────────────────────────────
-console.log("\n[4/8] cUSDC.setOperator(vault)");
+console.log("\n[4/6] cUSDC.setOperator(vault)");
 const until = Math.floor(Date.now() / 1000) + 24 * 3600;
 const setOpTx = await wallet.writeContract({
   address: CUSDC,
@@ -162,7 +139,7 @@ await publicClient.waitForTransactionReceipt({ hash: setOpTx });
 log("setOperator tx:", setOpTx);
 
 // ─── 5. Grant persistent Nox ACL on balance handle to vault ─────────────────────
-console.log("\n[5/8] NoxCompute.allow(balanceHandle, vault)");
+console.log("\n[5/6] NoxCompute.allow(balanceHandle, vault)");
 const allowTx = await wallet.writeContract({
   address: NOX_COMPUTE,
   abi: noxAbi,
@@ -173,7 +150,7 @@ await publicClient.waitForTransactionReceipt({ hash: allowTx });
 log("allow tx:", allowTx);
 
 // ─── 6. requestDeposit → status: pending ────────────────────────────────────────
-console.log("\n[6/8] requestDeposit (status: pending)");
+console.log("\n[6/6] requestDeposit (status: pending)");
 const reqDepositTx = await wallet.writeContract({
   address: VAULT,
   abi: vaultRequestDepositAbi,
@@ -183,40 +160,10 @@ const reqDepositTx = await wallet.writeContract({
 await publicClient.waitForTransactionReceipt({ hash: reqDepositTx });
 log("requestDeposit tx:", reqDepositTx);
 
-const pendingHandle = (await vault.read.pendingDepositRequest([OWNER])) as `0x${string}`;
+const pendingHandle = await vault.read.pendingDepositRequest([OWNER]);
 log("pendingDepositRequest:", pendingHandle);
 
-// ─── 7. approveDeposit (Ownable owner) → status: claimable ──────────────────────
-console.log("\n[7/8] approveDeposit (status: claimable)");
-const approveTx = await wallet.writeContract({
-  address: VAULT,
-  abi: vaultApproveDepositAbi,
-  functionName: "approveDeposit",
-  args: [pendingHandle, OWNER],
-});
-await publicClient.waitForTransactionReceipt({ hash: approveTx });
-log("approveDeposit tx:", approveTx);
-
-log(
-  "claimableDepositRequest:",
-  await vault.read.claimableDepositRequest([OWNER]),
+console.log(
+  "\n✅ Request submitted. Next step: the vault Ownable owner must call" +
+    " `approveDeposit` with the pending handle above, then run `claimDeposit.ts`.",
 );
-
-// ─── 8. deposit (claim) → status: claimed ───────────────────────────────────────
-console.log("\n[8/8] deposit(receiver, controller) (status: claimed)");
-const claimTx = await wallet.writeContract({
-  address: VAULT,
-  abi: vaultDepositClaimAbi,
-  functionName: "deposit",
-  args: [OWNER, OWNER],
-});
-await publicClient.waitForTransactionReceipt({ hash: claimTx });
-log("deposit (claim) tx:", claimTx);
-
-// ─── Final state ────────────────────────────────────────────────────────────────
-console.log("\nFinal state:");
-log("user shares handle:", await vault.read.confidentialBalanceOf([OWNER]));
-log("totalSupply handle:", await vault.read.confidentialTotalSupply());
-log("totalAssets handle:", await vault.read.confidentialTotalAssets());
-
-console.log("\n✅ Lifecycle complete: pending → claimable → claimed");

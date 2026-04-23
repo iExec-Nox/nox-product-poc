@@ -4,7 +4,7 @@ Confidential adaptation of ERC-4626 and EIP-7540, built on top of the Nox confid
 primitives (`euint256`, `ebool`, …) and the [@iexec-nox/nox-confidential-contracts][nox-conf]
 ERC-7984 implementation.
 
-Spec: Confluence page [“PoC 1: Confidential Vault cERC-7984”][spec]
+Spec: Confluence page ["PoC 1: Confidential Vault cERC-7984"][spec]
 References: OpenZeppelin [`ERC4626`][oz4626], [EIP-7540][eip7540], [ERC-7984][eip7984].
 
 [nox-conf]: https://www.npmjs.com/package/@iexec-nox/nox-confidential-contracts
@@ -13,7 +13,32 @@ References: OpenZeppelin [`ERC4626`][oz4626], [EIP-7540][eip7540], [ERC-7984][ei
 [eip7540]: https://eips.ethereum.org/EIPS/eip-7540
 [eip7984]: https://eips.ethereum.org/EIPS/eip-7984
 
-### Confidentiality matrix (from the Confluence spec)
+## Layout
+
+```
+contracts/
+├── interfaces/
+│   ├── IConfidentialERC4626.sol     — sync vault interface
+│   └── IConfidentialERC7540.sol     — async vault interface
+├── vault/
+│   ├── ConfidentialERC4626.sol      — sync implementation (ERC-4626 + Nox)
+│   └── ConfidentialERC7540.sol      — async implementation (EIP-7540, extends 4626)
+├── factory/
+│   └── ConfidentialERC7540Factory.sol — CREATE2 factory for vaults
+└── mocks/
+    └── cUSDC.sol                    — test-only concrete ERC-7984
+
+scripts/
+├── deployVault.ts                   — deploys a vault via the factory
+├── requestDeposit.ts                — phase 1: wrap USDC + requestDeposit (pending)
+└── claimDeposit.ts                  — phase 3: claim approved shares (claimed)
+
+test/
+├── ConfidentialERC7540Factory.ts    — local smoke test (factory + vault deploy)
+└── ConfidentialERC7540.fork.ts      — Arbitrum Sepolia fork integration tests
+```
+
+## Confidentiality matrix (from the Confluence spec)
 
 | Element                           | Confidential? | Implementation                                 |
 | --------------------------------- | ------------- | ---------------------------------------------- |
@@ -22,26 +47,6 @@ References: OpenZeppelin [`ERC4626`][oz4626], [EIP-7540][eip7540], [ERC-7984][ei
 | `confidentialTotalAssets()`       | yes           | `IERC7984(asset).confidentialBalanceOf(this)`  |
 | NAV (`totalAssets / totalSupply`) | public ratio  | TODO(prod): opt-in `Nox.allowPublicDecryption` |
 | PnL / IRR / user APY              | always client | computed off-chain with user decryption        |
-
-### PoC simplifications (tagged `TODO(prod)` in code)
-
-- **No inflation-attack protection.** OZ uses virtual shares/assets
-  `shares = assets × (totalSupply + 10^offset) / (totalAssets + 1)`. Nox does not expose a
-  confidential `pow` primitive today, so we fall back to a first-deposit bootstrap (`shares =
-assets` on the very first deposit). A production vault should be seeded by the deployer.
-- **No slippage protection.** TODO(prod).
-- **Sync `mint` / `withdraw`** entry points are not exposed. Only `deposit` (by asset amount) and
-  `redeem` (by share amount) are.
-- **Async claim** takes `(receiver, controller)` and claims the full claimable bucket; the
-  spec-compliant `deposit(assets, receiver, controller)` is a TODO because users cannot know the
-  exact plaintext amount to pass in a confidential setting.
-- **No multi-request support.** Each `controller` has a single pending/claimable bucket per
-  flow; a second `requestDeposit` before approval simply accumulates.
-- **NAV disclosure.** Not implemented. The vault operator will need to call
-  `Nox.allowPublicDecryption` on both `confidentialTotalAssets()` and
-  `confidentialTotalSupply()` handles (or on the pre-computed ratio) before a frontend can show
-  NAV / APY.
-- **Factory** is plain `new`; use CREATE2 / ERC-1167 clones in prod.
 
 ## Flows
 
@@ -57,7 +62,7 @@ sequenceDiagram
     User->>Vault: deposit(encAssets, proof, receiver)
     Vault->>Asset: confidentialTransferFrom(User, Vault, assets)
     Asset-->>Vault: transferred (euint256)
-    Vault->>Vault: shares = transferred * totalSupply / totalAssets
+    Vault->>Vault: shares = _convertToShares(transferred)
     Vault->>Vault: _mint(receiver, shares)
     Vault-->>User: shares (euint256)
 ```
@@ -72,19 +77,20 @@ sequenceDiagram
     participant Asset as IERC7984 (cUSDC)
 
     User->>Asset: setOperator(Vault, until)
-    User->>Vault: requestDeposit(encAssets, proof, controller, owner)
+    User->>Vault: requestDeposit(handle, controller, owner)
     Vault->>Asset: confidentialTransferFrom(owner, Vault, assets)
     Note over Vault: pendingDepositAssets[controller] += transferred
 
-    Owner->>Vault: approveDeposit(encAssets, proof, controller)
-    Note over Vault: shares = assets * totalSupply / totalAssets,<br/>mint shares to Vault,<br/>pending[-=] / claimable[+=]
+    Owner->>Vault: approveDeposit(assets, owner)
+    Note over Vault: pending[−=] / claimable[+=]<br/>(assets stay in assets unit, per EIP-7540)
 
-    User->>Vault: claimDeposit(receiver, controller)
-    Vault->>Vault: transfer(Vault → receiver, claimableShares)
+    User->>Vault: deposit(receiver, controller)
+    Vault->>Vault: shares = _convertToShares(claimableAssets)
+    Vault->>Vault: _mint(receiver, shares)
     Vault-->>User: shares
 ```
 
-## Build
+## Setup
 
 ```bash
 cd cVault/contracts
@@ -92,27 +98,107 @@ npm install
 npx hardhat compile
 ```
 
-Running scenarios end-to-end requires a chain with the Nox `NoxCompute` contract deployed (Arbitrum
-Sepolia, or a local fork with the address at `0x44C0…8236`). See
-[`@iexec-nox/nox-protocol-contracts`](https://www.npmjs.com/package/@iexec-nox/nox-protocol-contracts)
-for the deployment scripts and the addresses.
-
-## Deploy the factory
+### Hardhat keystore (infrastructure secrets)
 
 ```bash
-npx hardhat ignition deploy ignition/modules/ConfidentialVaultFactory.ts
-# then from a script:
-#   factory.createVault(assetAddress, "cVault USDC", "cvUSDC", "", owner)
+npx hardhat keystore set ARBITRUM_SEPOLIA_RPC_URL      # dedicated RPC URL
+npx hardhat keystore set ETHERSCAN_API_KEY             # v2 unified key, one for all chains
 ```
 
-## Verification
+### `.env` (script-level vars — loaded by dotenv-cli)
 
-Verify deployed contracts on Etherscan. Requires `ETHERSCAN_API_KEY`:
+| Variable                    | Role                                                |
+| --------------------------- | --------------------------------------------------- |
+| `VAULT_OWNER_PRIVATE_KEY`   | Signer used by all scripts                          |
+| `VAULT_OWNER_ADDRESS`       | Initial Ownable owner of vaults created via factory |
+| `CUSDC_ADDRESS`             | `ERC20ToERC7984Wrapper` cUSDC used as underlying    |
+| `FACTORY_ADDRESS`           | Filled by `deploy:factory:arbitrumSepolia`          |
+| `VAULT_ADDRESS`             | Filled by `deploy:vault:arbitrumSepolia`            |
+
+Copy `.env.example` to `.env` and fill. Generate a fresh dev key with:
 
 ```bash
-pnpm run verify:factory:arbitrumSepolia
+node --input-type=module -e "import {generatePrivateKey} from 'viem/accounts'; console.log(generatePrivateKey())"
 ```
 
+## Test
+
 ```bash
-npm run verify:vault:arbitrumSepolia -- 0xVault... 0xAsset... "MyVault" "MV" "" 0xOwner...
+npm test                 # all tests (local smoke + fork)
 ```
+
+The fork suite connects to Arbitrum Sepolia (chainId 421614) so `Nox.noxComputeContract()`
+resolves to the live deployment at `0xd464…c229`.
+
+## Deploy
+
+```bash
+# 1. Deploy the factory (Ignition, CREATE2, auto-verify on Arbiscan/Blockscout/Sourcify)
+npm run deploy:factory:arbitrumSepolia
+
+# → copy the printed address into .env as FACTORY_ADDRESS
+
+# 2. Deploy a vault via the factory (CREATE2, random salt)
+npm run deploy:vault:arbitrumSepolia
+
+# → copy the printed address into .env as VAULT_ADDRESS
+```
+
+If the auto-verify fails (Arbiscan/Blockscout sometimes lag behind the tx), re-run:
+
+```bash
+npm run verify:factory                                  # factory
+npm run verify:vault -- <vault> <asset> "<name>" "<sym>" "" <initialOwner>
+```
+
+## Interact with a deployed vault (async lifecycle)
+
+The EIP-7540 lifecycle is request → approve → claim. Each phase is its own script so the
+three actors (user, vault owner, user again) can be orchestrated independently.
+
+### Phase 1 — user submits a request
+
+```bash
+npm run vault:request:arbitrumSepolia
+```
+
+What it does:
+1. `USDC.approve(cUSDC, amount)` — authorise the wrapper
+2. `cUSDC.wrap(user, amount)` — mint encrypted cUSDC to the user
+3. `cUSDC.setOperator(vault, until)` — let the vault pull via `confidentialTransferFrom`
+4. `NoxCompute.allow(balanceHandle, vault)` — persistent ACL grant to the vault
+5. `vault.requestDeposit(balanceHandle, controller, owner)` → status **pending**
+
+### Phase 2 — vault owner approves
+
+Not scripted. The Ownable owner of the vault calls `approveDeposit(assets, owner)` with the
+handle read from `pendingDepositRequest(controller)`. The amount approved should be ≤ the
+current pending (over-approval is a no-op thanks to `Nox.safeSub`).
+
+This moves the amount from pending to claimable. No conversion yet — per EIP-7540, shares are
+minted at claim time at the live NAV.
+
+### Phase 3 — user claims
+
+```bash
+npm run vault:claim:arbitrumSepolia
+```
+
+What it does:
+1. Read `claimableDepositRequest(controller)` (for log only)
+2. `vault.deposit(receiver, controller)` → converts to shares at live NAV, `_mint(receiver,
+   shares)` → status **claimed**
+3. Read the final state: user share balance handle, vault totalSupply / totalAssets handles
+
+## PoC simplifications (tagged `TODO(prod)` in code)
+
+- **No slippage / `maxDeposit` / `maxRedeem` caps.** Enforced reverts on encrypted comparisons
+  are not possible; a production vault would clamp via `Nox.le` + `Nox.select`.
+- **Live NAV at claim time.** The EIP-7540 spec allows a snapshotted rate at approval time; we
+  use the live NAV for simplicity. Production: snapshot the NAV on `approveDeposit`.
+- **Singleton request mode.** Each controller has a single bucket per flow. EIP-7540 allows
+  multiple concurrent `requestId`s if needed.
+- **NAV disclosure.** The vault owner would need to call `Nox.allowPublicDecryption` on
+  `totalAssets` + `totalSupply` (or on a pre-computed ratio) to let a frontend show NAV / APY.
+- **Factory uses `new` + CREATE2.** Consider ERC-1167 minimal-proxy clones once the vault
+  bytecode stabilises, for cheaper deploys with a shared implementation.

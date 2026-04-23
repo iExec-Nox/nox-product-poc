@@ -7,7 +7,7 @@
  *   - Factory CREATE2 + ownership wiring on the vault.
  *   - Real Nox primitive exercised via `TestERC7984.mintPublic` (calls `Nox.toEuint256` under
  *     the hood, which invokes `NoxCompute.wrapAsPublicHandle`).
- *   - `approveDeposit` (external-input overload) rejects non-owner callers.
+ *   - `approveDeposit` rejects non-owner callers (`OwnableUnauthorizedAccount`).
  *
  * Out of scope:
  *   The full request → approve → claim lifecycle requires gateway-signed `externalEuint256`
@@ -117,18 +117,15 @@ describe("ConfidentialERC7540 — fork Arbitrum Sepolia", async () => {
     assert.equal(deployed, predicted);
   });
 
-  it("approveDeposit (external-input overload) reverts when caller is not the owner", async () => {
-    // Use encodeFunctionData on a narrowed 3-arg ABI fragment to disambiguate from the
-    // handle-only overload, then send a raw call as `alice` and expect OwnableUnauthorized.
+  it("approveDeposit reverts when caller is not the owner", async () => {
     const { alice, vault, publicClient } = await deployFixture();
-    const approveDepositExternalAbi = [
+    const approveDepositAbi = [
       {
         type: "function",
         name: "approveDeposit",
         stateMutability: "nonpayable",
         inputs: [
-          { name: "encryptedAssets", type: "bytes32" },
-          { name: "inputProof", type: "bytes" },
+          { name: "assets", type: "bytes32" },
           { name: "owner", type: "address" },
         ],
         outputs: [],
@@ -136,11 +133,10 @@ describe("ConfidentialERC7540 — fork Arbitrum Sepolia", async () => {
     ] as const;
 
     const data = encodeFunctionData({
-      abi: approveDepositExternalAbi,
+      abi: approveDepositAbi,
       functionName: "approveDeposit",
       args: [
         "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "0x",
         alice.account.address,
       ],
     });
