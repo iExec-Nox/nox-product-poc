@@ -25,7 +25,6 @@ contract ConfidentialERC7540Factory {
         address indexed vault,
         address indexed asset,
         address indexed initialOwner,
-        bytes32 salt,
         string name,
         string symbol
     );
@@ -47,7 +46,7 @@ contract ConfidentialERC7540Factory {
         vault = address(
             new ConfidentialERC7540{salt: salt}(asset, name, symbol, contractURI, initialOwner)
         );
-        emit ConfidentialERC7540Created(vault, address(asset), initialOwner, salt, name, symbol);
+        emit ConfidentialERC7540Created(vault, address(asset), initialOwner, name, symbol);
     }
 
     /**

@@ -12,7 +12,7 @@
     "deploy:vault:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/deployVault.ts",
     "vault:lifecycle:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/vaultLifecycle.ts",
     "verify:factory": "hardhat ignition verify arbitrumSepolia --network arbitrumSepolia",
-    "verify:vault": "hardhat verify --network arbitrumSepolia"
+    "verify:vault": "dotenv -e .env -- hardhat verify --network arbitrumSepolia"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ignition": "^3.1.2",
