@@ -363,4 +363,46 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
     function claimableRedeemRequest(address controller) external view override returns (euint256) {
         return _claimableRedeemShares[controller];
     }
+
+    // ============ Admin viewership (totalSupply / totalAssets) ============
+    // Every op that mutates the vault's encrypted totals produces a new handle that only the
+    // vault itself is allowed on by default. These overrides re-grant persistent Nox ACL to the
+    // Ownable `owner()` after each mutation, so the admin can decrypt `totalSupply` / `totalAssets`
+    // off-chain. Users keep seeing only their own handles.
+
+    /// @dev Re-grants the admin (Ownable `owner()`) persistent Nox ACL on the new
+    ///      `_totalSupply` handle after every mint/burn/transfer.
+    function _update(address from, address to, euint256 amount)
+        internal
+        virtual
+        override
+        returns (euint256 transferred)
+    {
+        transferred = super._update(from, to, amount);
+        Nox.allow(confidentialTotalSupply(), owner());
+    }
+
+    /// @dev Re-grants the admin persistent Nox ACL on the updated `totalAssets` handle
+    ///      (i.e. the vault's cUSDC balance) after each inbound asset transfer.
+    function _transferIn(address from, euint256 amount)
+        internal
+        virtual
+        override
+        returns (euint256 transferred)
+    {
+        transferred = super._transferIn(from, amount);
+        Nox.allow(confidentialTotalAssets(), owner());
+    }
+
+    /// @dev Re-grants the admin persistent Nox ACL on the updated `totalAssets` handle after
+    ///      each outbound asset transfer.
+    function _transferOut(address to, euint256 amount)
+        internal
+        virtual
+        override
+        returns (euint256 sent)
+    {
+        sent = super._transferOut(to, amount);
+        Nox.allow(confidentialTotalAssets(), owner());
+    }
 }
