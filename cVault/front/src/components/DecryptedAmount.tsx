@@ -35,7 +35,7 @@ export function DecryptedAmount({ handle, decimals = 6, suffix }: Props) {
   if (state.status === "loading") {
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6, opacity: 0.75 }}>
-        <MI name="sync" size={14} color="var(--ct-fg-3)" />
+        <MI name="sync" size={14} color="var(--ct-fg-3)" style={{ animation: "ct-spin 1s linear infinite" }} />
         <span>decrypting…</span>
       </span>
     );

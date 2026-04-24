@@ -119,25 +119,15 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
     });
   }, [shares, address, vaultAddress]);
 
-  // A finalized `claimable*` slot is reset via `Nox.toEuint256(0)`, producing a FRESH non-zero
-  // handle whose decrypted value is 0 (not bytes32(0)). Gating purely on `handle !== ZERO_HANDLE`
-  // leaves the card visible forever. We additionally inspect the decrypted state: once the user
-  // has revealed the handle and the value is 0n, we treat the slot as effectively empty.
-  const pendingDepositDecrypt = useDecryptedHandle(pendingDeposit as `0x${string}` | undefined);
-  const claimableDepositDecrypt = useDecryptedHandle(claimableDeposit as `0x${string}` | undefined);
-  const pendingRedeemDecrypt = useDecryptedHandle(pendingRedeem as `0x${string}` | undefined);
-  const claimableRedeemDecrypt = useDecryptedHandle(claimableRedeem as `0x${string}` | undefined);
-  const isRevealedZero = (s: ReturnType<typeof useDecryptedHandle>["state"]) =>
-    s.status === "ok" && s.value === 0n;
-
-  const hasPendingDeposit =
-    !!pendingDeposit && pendingDeposit !== ZERO_HANDLE && !isRevealedZero(pendingDepositDecrypt.state);
-  const hasClaimableDeposit =
-    !!claimableDeposit && claimableDeposit !== ZERO_HANDLE && !isRevealedZero(claimableDepositDecrypt.state);
-  const hasPendingRedeem =
-    !!pendingRedeem && pendingRedeem !== ZERO_HANDLE && !isRevealedZero(pendingRedeemDecrypt.state);
-  const hasClaimableRedeem =
-    !!claimableRedeem && claimableRedeem !== ZERO_HANDLE && !isRevealedZero(claimableRedeemDecrypt.state);
+  // Visibility is driven purely by the raw handle. A bytes32(0) handle means the storage slot
+  // was never written (nothing to show). A non-zero handle means the slot exists on-chain —
+  // even if the decrypted value turns out to be 0 (e.g. just after a finalize resets the slot
+  // via `Nox.toEuint256(0)`). Keeping the card around in that case is better DevX: the user
+  // can still inspect what they just claimed instead of the UI vanishing mid-reveal.
+  const hasPendingDeposit = !!pendingDeposit && pendingDeposit !== ZERO_HANDLE;
+  const hasClaimableDeposit = !!claimableDeposit && claimableDeposit !== ZERO_HANDLE;
+  const hasPendingRedeem = !!pendingRedeem && pendingRedeem !== ZERO_HANDLE;
+  const hasClaimableRedeem = !!claimableRedeem && claimableRedeem !== ZERO_HANDLE;
 
   const name = (vaultName as string | undefined) ?? "Confidential Vault";
   const symbol = (vaultSymbol as string | undefined) ?? "cvUSDC";
@@ -204,7 +194,7 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
 
       {/* Shares metric (full width) */}
       <div style={{ marginBottom: 24 }}>
-        <MetricTile label="My shares" me sub="On-chain balance">
+        <MetricTile label="My shares" me>
           <DecryptedAmount handle={shares as `0x${string}` | undefined} decimals={shareDecimals} suffix={symbol} />
         </MetricTile>
       </div>

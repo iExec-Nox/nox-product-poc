@@ -394,7 +394,7 @@ export function RequestDepositModal({
       <PrimaryButton
         icon="arrow_forward"
         onClick={submit}
-        disabled={!canSubmit}
+        disabled={!canSubmit || runner.done}
         loading={runner.running}
         style={{ width: "100%", marginTop: 16, height: 48 }}
       >
@@ -592,7 +592,7 @@ export function RequestRedeemModal({
       <PrimaryButton
         icon="call_made"
         onClick={submit}
-        disabled={!canSubmit}
+        disabled={!canSubmit || runner.done}
         loading={runner.running}
         style={{ width: "100%", marginTop: 16, height: 48 }}
       >
@@ -716,7 +716,7 @@ export function FinalizeDepositModal({
       <PrimaryButton
         icon="check"
         onClick={submit}
-        disabled={!canSubmit}
+        disabled={!canSubmit || runner.done}
         loading={runner.running}
         style={{ width: "100%", marginTop: 16, height: 48 }}
       >
@@ -846,7 +846,7 @@ export function FinalizeRedeemModal({
       <PrimaryButton
         icon="check"
         onClick={submit}
-        disabled={!canSubmit}
+        disabled={!canSubmit || runner.done}
         loading={runner.running}
         style={{ width: "100%", marginTop: 16, height: 48 }}
       >

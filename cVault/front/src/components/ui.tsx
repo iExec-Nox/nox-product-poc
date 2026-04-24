@@ -126,7 +126,7 @@ export function PrimaryButton({
         ...style,
       }}
     >
-      {loading ? <MI name="sync" size={16} style={{ animation: "ct-pulse 1.2s infinite" }} /> : icon && <MI name={icon} size={16} />}
+      {loading ? <MI name="sync" size={16} style={{ animation: "ct-spin 1s linear infinite" }} /> : icon && <MI name={icon} size={16} />}
       {children}
     </button>
   );
@@ -459,7 +459,7 @@ export function StepList({ steps }: { steps: Step[] }) {
                   name={icon}
                   size={14}
                   color="#fff"
-                  style={s.status === "active" ? { animation: "ct-pulse 1.2s infinite" } : undefined}
+                  style={s.status === "active" ? { animation: "ct-spin 1s linear infinite" } : undefined}
                 />
               ) : (
                 <span style={{ font: "700 12px/1 var(--ct-font-ui)", color: "var(--ct-fg-5)" }}>{i + 1}</span>

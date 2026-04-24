@@ -50,12 +50,24 @@ export function useDecryptedHandle(handle: `0x${string}` | undefined) {
     () => undefined,
   );
   const [localState, setLocalState] = useState<DecryptState>({ status: "hidden" });
+  // Reset localState when the handle changes (e.g. after a finalize resets the claimable slot
+  // and the contract writes a fresh zero handle). Otherwise the previously-revealed value
+  // would leak through to the new handle and show stale plaintext under **** / eye.
+  const [prevHandle, setPrevHandle] = useState(handle);
+  if (prevHandle !== handle) {
+    setPrevHandle(handle);
+    setLocalState({ status: "hidden" });
+  }
 
   let state: DecryptState;
   if (!handle || handle === ZERO_HANDLE) {
     state = { status: "empty" };
   } else if (cached !== undefined) {
     state = { status: "ok", value: cached };
+  } else if (prevHandle !== handle) {
+    // First render after a handle change: the setLocalState above is queued. Render "hidden"
+    // synchronously this turn so we don't flash the stale localState for one frame.
+    state = { status: "hidden" };
   } else {
     state = localState;
   }
