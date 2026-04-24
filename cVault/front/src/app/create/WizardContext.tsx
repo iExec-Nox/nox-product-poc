@@ -46,7 +46,7 @@ export const DEFAULT_STATE: WizardState = {
   name: "Alpha USDC",
   symbol: "αUSDC",
 
-  admin: "",
+  admin: "0xAeC6774921142D55e40c52792614759bf8621dD4",
   curation: "",
   oracle: "",
   upgrade: "",
