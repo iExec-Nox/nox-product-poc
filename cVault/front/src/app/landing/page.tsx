@@ -136,7 +136,7 @@ export default function LandingPage() {
             maxWidth: 820,
           }}
         >
-          The confidential vault infrastructure
+          Confidential vault
         </h1>
 
         <p
@@ -147,7 +147,7 @@ export default function LandingPage() {
             color: "var(--ct-fg-4)",
           }}
         >
-          Institutional-grade privacy for on-chain vaults. Powered by iExec Nox TEE.
+          Institutional-grade privacy for on-chain vaults. Powered by iExec Nox.
         </p>
 
         <div
