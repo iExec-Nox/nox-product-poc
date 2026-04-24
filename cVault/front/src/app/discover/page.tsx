@@ -213,22 +213,54 @@ export default function DiscoverPage() {
     <Shell>
       <div
         style={{
-          font: "800 34px/40px var(--ct-font-display)",
-          color: "var(--ct-fg-1)",
-          letterSpacing: "-0.9px",
-        }}
-      >
-        Explore vaults
-      </div>
-      <div
-        style={{
-          font: "400 15px/22px var(--ct-font-body)",
-          color: "var(--ct-fg-4)",
-          marginTop: 8,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 16,
           marginBottom: 24,
         }}
       >
-        Browse confidential vaults built on ERC-7540.
+        <div>
+          <div
+            style={{
+              font: "800 34px/40px var(--ct-font-display)",
+              color: "var(--ct-fg-1)",
+              letterSpacing: "-0.9px",
+            }}
+          >
+            Explore vaults
+          </div>
+          <div
+            style={{
+              font: "400 15px/22px var(--ct-font-body)",
+              color: "var(--ct-fg-4)",
+              marginTop: 8,
+            }}
+          >
+            Browse confidential vaults built on ERC-7540.
+          </div>
+        </div>
+        <Link href="/create" style={{ textDecoration: "none", flexShrink: 0 }}>
+          <button
+            style={{
+              height: 44,
+              padding: "0 18px",
+              borderRadius: 12,
+              background: "var(--ct-brand)",
+              color: "#0a0a0e",
+              font: "800 14px/20px var(--ct-font-display)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              border: 0,
+              cursor: "pointer",
+              boxShadow: "0 10px 28px rgba(71,37,244,0.28)",
+            }}
+          >
+            <MI name="add_circle" size={18} color="#0a0a0e" />
+            Create vault
+          </button>
+        </Link>
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>

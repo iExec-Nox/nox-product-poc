@@ -61,6 +61,16 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
     mapping(address controller => euint256) private _pendingRedeemShares;
     mapping(address controller => euint256) private _claimableRedeemShares;
 
+    /**
+     * @dev Running sum of assets sitting in the vault but not yet converted to shares —
+     * `pending + claimable` across every controller. Subtracted from `confidentialTotalAssets()`
+     * at claim time to recover the productive NAV denominator under concurrent requests.
+     *
+     * Invariant: `asset.confidentialBalanceOf(vault) - _totalInflightDepositAssets` equals the
+     * productive capital (shares have been minted against it).
+     */
+    euint256 private _totalInflightDepositAssets;
+
     // ============ Errors ============
 
     error ConfidentialERC7540ZeroAddress();
@@ -73,7 +83,13 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
         string memory symbol_,
         string memory contractURI_,
         address initialOwner_
-    ) ConfidentialERC4626(asset_, name_, symbol_, contractURI_) Ownable(initialOwner_) {}
+    ) ConfidentialERC4626(asset_, name_, symbol_, contractURI_) Ownable(initialOwner_) {
+        // Seed the inflight counter so the first `requestDeposit` can add to a known handle.
+        euint256 zero = Nox.toEuint256(0);
+        _totalInflightDepositAssets = zero;
+        Nox.allowThis(zero);
+        Nox.allow(zero, initialOwner_);
+    }
 
     // ============ Disable sync entry points ============
 
@@ -182,6 +198,13 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
         Nox.allow(newPending, owner()); // vault admin can observe
         Nox.allow(newPending, controller); // and the controller
 
+        // Mirror the transfer in the global inflight counter: these assets are in the vault but
+        // no shares are minted against them yet, so they must not inflate the productive NAV.
+        euint256 newInflight = Nox.add(_totalInflightDepositAssets, transferred);
+        _totalInflightDepositAssets = newInflight;
+        Nox.allowThis(newInflight);
+        Nox.allow(newInflight, owner());
+
         emit DepositRequest(controller, owner_, REQUEST_ID, msg.sender, transferred);
         return REQUEST_ID;
     }
@@ -286,7 +309,13 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
     /**
      * @inheritdoc IConfidentialERC7540
      * @dev Converts the full `claimableDepositAssets[controller]` bucket to shares at the live
-     * NAV and mints them to `receiver`. Resets the claimable bucket.
+     * NAV and mints them to `receiver`. Resets the claimable bucket and the global inflight
+     * counter so future claimants see the correct productive NAV.
+     *
+     * Productive NAV = `confidentialTotalAssets() - _totalInflightDepositAssets`. At this point
+     * the global inflight still includes THIS controller's claimable, so the subtraction
+     * correctly excludes every user's pending/claimable bucket — including the caller's. The
+     * counter is decremented only after `_mint`, to keep the invariant true throughout.
      */
     function deposit(
         address receiver,
@@ -299,16 +328,23 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
         );
 
         euint256 assets = _claimableDepositAssets[controller];
-        // Reset claimable to encrypted 0 BEFORE the snapshot — the pending assets have already
-        // been pulled at request time, so they're already part of `confidentialTotalAssets()`.
         euint256 zero = Nox.toEuint256(0);
         _claimableDepositAssets[controller] = zero;
         Nox.allowThis(zero);
 
         (euint256 assetsBefore, euint256 supplyBefore) = _snapshot();
-        shares = _convertToShares(assets, assetsBefore, supplyBefore);
+        euint256 productiveAssets = Nox.sub(assetsBefore, _totalInflightDepositAssets);
+        Nox.allowThis(productiveAssets);
+        shares = _convertToShares(assets, productiveAssets, supplyBefore);
 
         _mint(receiver, shares);
+
+        // These assets are productive now; remove them from the global inflight pool.
+        euint256 newInflight = Nox.sub(_totalInflightDepositAssets, assets);
+        _totalInflightDepositAssets = newInflight;
+        Nox.allowThis(newInflight);
+        Nox.allow(newInflight, owner());
+
         emit DepositClaimed(controller, receiver, shares);
     }
 
@@ -362,6 +398,18 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
     /// @inheritdoc IConfidentialERC7540
     function claimableRedeemRequest(address controller) external view override returns (euint256) {
         return _claimableRedeemShares[controller];
+    }
+
+    /**
+     * @dev Encrypted running sum of deposit assets that have been pulled into the vault but
+     * not yet converted to shares (pending + claimable across all controllers).
+     *
+     * ACL: only the vault itself and the admin (`owner()`) can decrypt this handle. Individual
+     * controllers never get a grant — their own pending/claimable buckets are exposed via
+     * {pendingDepositRequest} / {claimableDepositRequest} instead.
+     */
+    function totalPendingDepositAssets() external view returns (euint256) {
+        return _totalInflightDepositAssets;
     }
 
     // ============ Admin viewership (totalSupply / totalAssets) ============

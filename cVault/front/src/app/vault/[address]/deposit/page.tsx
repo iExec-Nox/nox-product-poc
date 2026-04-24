@@ -254,7 +254,7 @@ export default function DepositPage({ params }: { params: Promise<{ address: str
   return (
     <Shell>
       <VaultHero
-        back={{ label: "Back to vaults", onClick: () => router.push("/portfolio") }}
+        back={{ label: "Back to my position", onClick: () => router.push(`/vault/${vaultAddress}`) }}
         title={`Deposit into ${name} (${symbol})`}
         badges={
           <>

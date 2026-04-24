@@ -9,8 +9,8 @@ import { WIZARD_STEPS, useWizard, DEFAULT_STATE } from "../WizardContext";
 // Default name/symbol suggestions keyed off the token id. Only applied when the user
 // hasn't yet edited the wizard defaults.
 const TOKEN_DEFAULTS: Record<SupportedToken["id"], { name: string; symbol: string }> = {
-  cUSDC: { name: "Delta Neutral USDC", symbol: "dnUSDC" },
-  cRLC: { name: "Delta Neutral RLC", symbol: "dnRLC" },
+  cUSDC: { name: "Alpha USDC", symbol: "αUSDC" },
+  cRLC: { name: "Alpha RLC", symbol: "αRLC" },
 };
 
 function TokenTile({
@@ -145,7 +145,7 @@ export default function VaultInfoPage() {
         subtitle="The chain and underlying asset define what this vault accepts as deposits."
         badge={<Badge tone="brand" icon="lock">Confidential</Badge>}
       >
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <Field label="Chain" required>
             <Dropdown icon="hub" value={state.chain} options={["Arbitrum Sepolia"]} disabled />
           </Field>
@@ -153,8 +153,8 @@ export default function VaultInfoPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: `repeat(${SUPPORTED_TOKENS.length}, minmax(0, 1fr))`,
-                gap: 10,
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 12,
               }}
             >
               {SUPPORTED_TOKENS.map((token) => (

@@ -43,8 +43,8 @@ export type WizardState = {
 export const DEFAULT_STATE: WizardState = {
   chain: "Arbitrum Sepolia",
   asset: "cUSDC",
-  name: "Delta Neutral USDC",
-  symbol: "dnUSDC",
+  name: "Alpha USDC",
+  symbol: "αUSDC",
 
   admin: "",
   curation: "",

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Address } from "viem";
 import { useAccount, useReadContract } from "wagmi";
@@ -40,41 +40,59 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
     functionName: "symbol",
   });
 
+  // `refetchOnMount: "always"` forces a fresh read every time the user navigates back to the
+  // vault page — otherwise wagmi/react-query happily reuses a pre-claim ZERO_HANDLE and the
+  // `DecryptedAmount` shows "0" via its empty-state shortcut instead of the freshly-minted
+  // share balance.
+  const sharedQueryOpts = { enabled: !!address, refetchOnMount: "always" as const, staleTime: 0 };
+
   const { data: shares, refetch: refetchShares } = useReadContract({
     address: vaultAddress,
     abi: vaultAbi,
     functionName: "confidentialBalanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: sharedQueryOpts,
   });
   const { data: pendingDeposit, refetch: refetchPendingDeposit } = useReadContract({
     address: vaultAddress,
     abi: vaultAbi,
     functionName: "pendingDepositRequest",
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: sharedQueryOpts,
   });
   const { data: claimableDeposit } = useReadContract({
     address: vaultAddress,
     abi: vaultAbi,
     functionName: "claimableDepositRequest",
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: sharedQueryOpts,
   });
   const { data: pendingRedeem, refetch: refetchPendingRedeem } = useReadContract({
     address: vaultAddress,
     abi: vaultAbi,
     functionName: "pendingRedeemRequest",
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: sharedQueryOpts,
   });
   const { data: claimableRedeem } = useReadContract({
     address: vaultAddress,
     abi: vaultAbi,
     functionName: "claimableRedeemRequest",
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: sharedQueryOpts,
   });
+
+  // Debug: surface the raw handle returned by `confidentialBalanceOf(user)` so we can confirm
+  // the front reads exactly what on-chain `cast call` returns. Logs every time the handle or
+  // the connected account changes.
+  useEffect(() => {
+    console.log("[vault:shares]", {
+      vault: vaultAddress,
+      user: address,
+      sharesHandle: shares,
+      isZero: !shares || shares === ZERO_HANDLE,
+    });
+  }, [shares, address, vaultAddress]);
 
   const hasPendingDeposit = pendingDeposit && pendingDeposit !== ZERO_HANDLE;
   const hasClaimableDeposit = claimableDeposit && claimableDeposit !== ZERO_HANDLE;

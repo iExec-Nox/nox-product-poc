@@ -19,7 +19,7 @@ export const CHAIN_ID = Number(
 
 export const FACTORY_ADDRESS: Address = overrideOrDefault(
   process.env.NEXT_PUBLIC_FACTORY_ADDRESS,
-  "0x9f47D1297aC6c06779E429e12B3c0a9885196D30",
+  "0x17e44408A4C699E6d737C2C22cC012d3Bcd49dB2",
 ) as Address;
 
 export const VAULT_ADDRESS: Address = overrideOrDefault(
