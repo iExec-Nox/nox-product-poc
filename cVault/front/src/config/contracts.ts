@@ -11,8 +11,6 @@ export const CHAIN_ID = 421614;
 
 export const FACTORY_ADDRESS: Address = "0xB9390D62E3272ef88b812B28bD0A57a4580937EE";
 
-export const VAULT_ADDRESS: Address = "0x5aed6A1be3C338Fc315b58Bc0948Ce41AcfE1B48";
-
 export const CUSDC_ADDRESS: Address = "0x1ccec6bc60db15e4055d43dc2531bb7d4e5b808e";
 
 export const RLC_ADDRESS: Address = "0x9923eD3cbd90CD78b910c475f9A731A6e0b8C963";

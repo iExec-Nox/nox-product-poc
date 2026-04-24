@@ -13,17 +13,16 @@ import { DecryptedAmount } from "@/components/DecryptedAmount";
 import { RequestDepositModal, RequestRedeemModal } from "@/components/RequestModals";
 import { useDecryptedHandle } from "@/hooks/useDecryptedHandle";
 
-import { VAULT_ADDRESS, ZERO_HANDLE } from "@/config/contracts";
+import { ZERO_HANDLE } from "@/config/contracts";
 import { vaultAbi } from "@/abi/vault";
 
 /**
- * L5 — My position in a specific vault. The `[address]` route segment defaults to
- * `VAULT_ADDRESS` if not present on the URL.
+ * L5 — My position in a specific vault.
  */
 export default function VaultPositionPage({ params }: { params: Promise<{ address: string }> }) {
   const router = useRouter();
   const { address: vaultAddrParam } = use(params);
-  const vaultAddress = (vaultAddrParam as Address) || VAULT_ADDRESS;
+  const vaultAddress = vaultAddrParam as Address;
 
   const { address } = useAccount();
   const [depositOpen, setDepositOpen] = useState(false);

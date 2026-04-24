@@ -24,10 +24,9 @@ export default function ReviewPage() {
   const adminDisplay = state.admin || address || "—";
   const token = SUPPORTED_TOKENS.find((t) => t.id === state.asset);
   const assetLabel = token?.confidentialSymbol ?? state.asset;
-  const depositUnit = token?.confidentialSymbol ?? state.asset;
 
   return (
-    <WizardShell step={5} steps={WIZARD_STEPS}>
+    <WizardShell step={4} steps={WIZARD_STEPS}>
       <StepHeader
         title="Review & deploy"
         subtitle={`Review your configuration. Deployment is a single transaction on ${state.chain}.`}
@@ -47,26 +46,8 @@ export default function ReviewPage() {
       </ReviewCard>
 
       <ReviewCard title="Roles & permissions">
-        <KV label="Administrator (initial owner)">
+        <KV label="Administrator (initial owner)" last>
           <AddressMono>{adminDisplay}</AddressMono>
-        </KV>
-        <KV label="Curation wallet">
-          <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
-            <AddressMono>{state.curation || "—"}</AddressMono>
-            <Badge tone="violet">Encrypted ACL</Badge>
-          </span>
-        </KV>
-        <KV label="Valuation oracle">
-          <AddressMono>{state.oracle || "—"}</AddressMono>
-        </KV>
-        <KV label="Upgrade authority">
-          <AddressMono>{state.upgrade || "—"}</AddressMono>
-        </KV>
-        <KV label="Upgrade timelock">
-          {state.timelock} day{state.timelock === "1" ? "" : "s"}
-        </KV>
-        <KV label="Whitelist" last>
-          {state.whitelist ? "Enabled" : "Disabled"}
         </KV>
       </ReviewCard>
 
@@ -76,21 +57,6 @@ export default function ReviewPage() {
         </KV>
         <KV label="Initial viewers" last>
           {state.viewers.length === 0 ? "None" : `${state.viewers.length} address${state.viewers.length === 1 ? "" : "es"}`}
-        </KV>
-      </ReviewCard>
-
-      <ReviewCard title="Fee structure">
-        <KV label="Management fee">{state.mgmtRate}% / year</KV>
-        <KV label="Management fee recipient">
-          <AddressMono>{state.mgmtRecipient || "—"}</AddressMono>
-        </KV>
-        <KV label="Performance fee">{state.perfRate}% of profits</KV>
-        <KV label="Performance fee recipient">
-          <AddressMono>{state.perfRecipient || "—"}</AddressMono>
-        </KV>
-        <KV label="Min deposit">{state.minDeposit ? `${state.minDeposit} ${depositUnit}` : "—"}</KV>
-        <KV label="Max deposit" last>
-          {state.maxDeposit ? `${state.maxDeposit} ${depositUnit}` : "No limit"}
         </KV>
       </ReviewCard>
 
@@ -111,14 +77,13 @@ export default function ReviewPage() {
             Immutable after deployment
           </div>
           <div style={{ font: "400 13px/19px var(--ct-font-body)", color: "var(--ct-fg-3)", marginTop: 4 }}>
-            Vault name, vault symbol, and the curation wallet address cannot be changed after deployment. Review
-            carefully.
+            Vault name and symbol cannot be changed after deployment. Review carefully.
           </div>
         </div>
       </div>
 
       <WizardFooter
-        onBack={() => router.push("/create/fees")}
+        onBack={() => router.push("/create/privacy")}
         onNext={() => router.push("/create/deploy")}
         nextLabel="Deploy confidential vault"
         nextIcon="lock"

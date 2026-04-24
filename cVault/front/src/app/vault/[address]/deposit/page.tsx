@@ -25,7 +25,7 @@ import { useDecryptedHandle } from "@/hooks/useDecryptedHandle";
 import { useStepRunner } from "@/lib/useStepRunner";
 import { GetCusdcModal, pickScenario, type GetCusdcScenario } from "@/components/GetCusdcModal";
 
-import { CUSDC_ADDRESS, NOX_COMPUTE_ADDRESS, VAULT_ADDRESS, ZERO_HANDLE } from "@/config/contracts";
+import { CUSDC_ADDRESS, NOX_COMPUTE_ADDRESS, ZERO_HANDLE } from "@/config/contracts";
 import { cusdcAbi } from "@/abi/cusdc";
 import { erc20Abi } from "@/abi/erc20";
 import { noxComputeAbi } from "@/abi/nox";
@@ -42,7 +42,7 @@ const USDC_DECIMALS = 6;
 export default function DepositPage({ params }: { params: Promise<{ address: string }> }) {
   const router = useRouter();
   const { address: vaultAddrParam } = use(params);
-  const vaultAddress = (vaultAddrParam as Address) || VAULT_ADDRESS;
+  const vaultAddress = vaultAddrParam as Address;
 
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();

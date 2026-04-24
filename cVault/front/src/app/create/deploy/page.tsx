@@ -177,28 +177,27 @@ export default function DeployPage() {
 
   useEffect(() => {
     if (startedRef.current) return;
+    // Wait for wagmi to hydrate the wallet/public clients. Previously we set
+    // `startedRef.current = true` unconditionally and then errored out on null clients, which
+    // latched the ref and prevented the real tx from ever being sent once the clients arrived.
+    if (!walletClient || !publicClient) return;
+    if (!token) {
+      startedRef.current = true;
+      setPhase("error");
+      setError(`Unknown asset "${state.asset}". Please go back and pick a supported token.`);
+      setDeploy((prev) => ({ ...prev, status: "error", error: `Unknown asset "${state.asset}".` }));
+      return;
+    }
+    if (!initialOwner) {
+      startedRef.current = true;
+      setPhase("error");
+      setError("Invalid admin / initial owner address.");
+      setDeploy((prev) => ({ ...prev, status: "error", error: "Invalid admin / initial owner address." }));
+      return;
+    }
+
     startedRef.current = true;
-
     (async () => {
-      if (!token) {
-        setPhase("error");
-        setError(`Unknown asset "${state.asset}". Please go back and pick a supported token.`);
-        setDeploy((prev) => ({ ...prev, status: "error", error: `Unknown asset "${state.asset}".` }));
-        return;
-      }
-      if (!walletClient || !publicClient) {
-        setPhase("error");
-        setError("Wallet not connected. Please connect a wallet to deploy.");
-        setDeploy((prev) => ({ ...prev, status: "error", error: "Wallet not connected." }));
-        return;
-      }
-      if (!initialOwner) {
-        setPhase("error");
-        setError("Invalid admin / initial owner address.");
-        setDeploy((prev) => ({ ...prev, status: "error", error: "Invalid admin / initial owner address." }));
-        return;
-      }
-
       try {
         setDeploy({ steps: [], status: "running" });
         setPhase("submitting");
@@ -349,49 +348,46 @@ export default function DeployPage() {
             </div>
           </WizardCard>
 
-          <WizardCard
-            title="Transaction"
-            badge={
-              phase === "error" ? (
-                <Badge tone="danger" icon="error">Failed</Badge>
-              ) : phase === "mining" || phase === "submitting" ? (
-                <Badge tone="warn" icon="schedule">Pending confirmation</Badge>
-              ) : (
-                <Badge tone="neutral">Awaiting wallet</Badge>
-              )
-            }
-          >
-            <Field label="Transaction hash">
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <div style={{ flex: 1 }}>
-                  <TextInput mono value={txHash ?? ""} onChange={() => {}} disabled placeholder="—" />
+          {txHash && (
+            <WizardCard
+              title="Transaction"
+              badge={
+                phase === "error" ? (
+                  <Badge tone="danger" icon="error">Failed</Badge>
+                ) : (
+                  <Badge tone="warn" icon="schedule">Pending confirmation</Badge>
+                )
+              }
+            >
+              <Field label="Transaction hash">
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <div style={{ flex: 1 }}>
+                    <TextInput mono value={txHash} onChange={() => {}} disabled />
+                  </div>
+                  <a
+                    href={`https://sepolia.arbiscan.io/tx/${txHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      gap: 6,
+                      alignItems: "center",
+                      height: 46,
+                      padding: "0 14px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.10)",
+                      color: "var(--ct-brand)",
+                      font: "700 13px/20px var(--ct-font-display)",
+                      textDecoration: "none",
+                      background: "rgba(255,255,255,0.03)",
+                    }}
+                  >
+                    <MI name="open_in_new" size={14} /> Arbiscan
+                  </a>
                 </div>
-                <a
-                  href={txHash ? `https://sepolia.arbiscan.io/tx/${txHash}` : "#"}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-disabled={!txHash}
-                  style={{
-                    display: "inline-flex",
-                    gap: 6,
-                    alignItems: "center",
-                    height: 46,
-                    padding: "0 14px",
-                    borderRadius: 12,
-                    border: "1px solid rgba(255,255,255,0.10)",
-                    color: txHash ? "var(--ct-brand)" : "var(--ct-fg-5)",
-                    font: "700 13px/20px var(--ct-font-display)",
-                    textDecoration: "none",
-                    background: "rgba(255,255,255,0.03)",
-                    pointerEvents: txHash ? "auto" : "none",
-                    opacity: txHash ? 1 : 0.6,
-                  }}
-                >
-                  <MI name="open_in_new" size={14} /> Arbiscan
-                </a>
-              </div>
-            </Field>
-          </WizardCard>
+              </Field>
+            </WizardCard>
+          )}
 
           {phase === "error" && (
             <>

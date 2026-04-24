@@ -386,8 +386,8 @@ export default function PrivacyPage() {
 
       <WizardFooter
         onBack={() => router.push("/create/roles")}
-        onNext={() => router.push("/create/fees")}
-        nextLabel="Fee structure"
+        onNext={() => router.push("/create/review")}
+        nextLabel="Review & deploy"
         nextIcon="arrow_forward"
       />
     </WizardShell>

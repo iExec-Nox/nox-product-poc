@@ -12,7 +12,7 @@ import { HStepper, VaultHero } from "@/components/lp";
 import { DecryptedAmount } from "@/components/DecryptedAmount";
 import { useStepRunner } from "@/lib/useStepRunner";
 
-import { NOX_COMPUTE_ADDRESS, VAULT_ADDRESS, ZERO_HANDLE } from "@/config/contracts";
+import { NOX_COMPUTE_ADDRESS, ZERO_HANDLE } from "@/config/contracts";
 import { noxComputeAbi } from "@/abi/nox";
 import { vaultAbi } from "@/abi/vault";
 import { redeemClaimAbi, requestRedeemHandleAbi } from "@/abi/vaultOverloads";
@@ -25,7 +25,7 @@ import { redeemClaimAbi, requestRedeemHandleAbi } from "@/abi/vaultOverloads";
 export default function RedeemPage({ params }: { params: Promise<{ address: string }> }) {
   const router = useRouter();
   const { address: vaultAddrParam } = use(params);
-  const vaultAddress = (vaultAddrParam as Address) || VAULT_ADDRESS;
+  const vaultAddress = vaultAddrParam as Address;
 
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();

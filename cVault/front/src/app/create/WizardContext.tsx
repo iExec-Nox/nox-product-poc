@@ -123,7 +123,6 @@ export const WIZARD_STEPS = [
   { key: "vault-info", path: "/create/vault-info", label: "Vault information", hint: "Chain, asset, name, symbol" },
   { key: "roles", path: "/create/roles", label: "Roles & permissions", hint: "Who controls the vault" },
   { key: "privacy", path: "/create/privacy", label: "Confidentiality", hint: "Privacy and viewers" },
-  { key: "fees", path: "/create/fees", label: "Fee structure", hint: "Fees and deposit limits" },
   { key: "review", path: "/create/review", label: "Review & deploy", hint: "Confirm and deploy" },
 ] as const;
 
