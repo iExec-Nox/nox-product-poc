@@ -13,6 +13,7 @@
     "deploy:vault:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/deployVault.ts",
     "vault:request:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/requestDeposit.ts",
     "vault:claim:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/claimDeposit.ts",
+    "vault:approve:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/approvePendingDeposits.ts",
     "vault:requestRedeem:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/requestRedeem.ts",
     "vault:claimRedeem:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/claimRedeem.ts",
     "vault:lifecycle:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/vaultLifecycle.ts",

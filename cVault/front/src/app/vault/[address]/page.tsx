@@ -4,6 +4,7 @@ import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Address } from "viem";
+import { formatUnits } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 
 import { Shell } from "@/components/Shell";
@@ -17,9 +18,17 @@ import {
   RequestRedeemModal,
 } from "@/components/RequestModals";
 import { useDecryptedHandle } from "@/hooks/useDecryptedHandle";
+import { useVaultSnapshot } from "@/hooks/useVaultSnapshot";
 
-import { ZERO_HANDLE } from "@/config/contracts";
+import { ZERO_HANDLE, getTokenByConfidential } from "@/config/contracts";
 import { vaultAbi } from "@/abi/vault";
+
+/**
+ * Mirror the vault's `_decimalsOffset()` override (ConfidentialERC7540.sol). The settler's
+ * `nav` field is the raw atomic ratio; we multiply by `10^DECIMALS_OFFSET` to recover the
+ * display NAV (underlying per share, 1:1 at seed).
+ */
+const DECIMALS_OFFSET = 6;
 
 /**
  * L5 — My position in a specific vault.
@@ -45,6 +54,16 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
     abi: vaultAbi,
     functionName: "symbol",
   });
+  const { data: assetAddress } = useReadContract({
+    address: vaultAddress,
+    abi: vaultAbi,
+    functionName: "asset",
+  });
+  const token = getTokenByConfidential(assetAddress as Address | undefined);
+  const underlyingSymbol = token?.underlyingSymbol ?? "USDC";
+  const assetDecimals = token?.decimals ?? 6;
+
+  const { data: snapshot } = useVaultSnapshot(vaultAddress);
 
   // `refetchOnMount: "always"` forces a fresh read every time the user navigates back to the
   // vault page — otherwise wagmi/react-query happily reuses a pre-claim ZERO_HANDLE and the
@@ -66,7 +85,7 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
     args: address ? [address] : undefined,
     query: sharedQueryOpts,
   });
-  const { data: claimableDeposit } = useReadContract({
+  const { data: claimableDeposit, refetch: refetchClaimableDeposit } = useReadContract({
     address: vaultAddress,
     abi: vaultAbi,
     functionName: "claimableDepositRequest",
@@ -80,7 +99,7 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
     args: address ? [address] : undefined,
     query: sharedQueryOpts,
   });
-  const { data: claimableRedeem } = useReadContract({
+  const { data: claimableRedeem, refetch: refetchClaimableRedeem } = useReadContract({
     address: vaultAddress,
     abi: vaultAbi,
     functionName: "claimableRedeemRequest",
@@ -111,7 +130,7 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
   return (
     <Shell>
       <VaultHero
-        back={{ label: "Back to portfolio", onClick: () => router.push("/portfolio") }}
+        back={{ label: "Back to vaults", onClick: () => router.push("/discover") }}
         title={`My position — ${name} (${symbol})`}
         badges={
           <>
@@ -134,6 +153,34 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
           </div>
         }
       />
+
+      {/* Public vault stats from the settler snapshot (TVL, NAV per share, APY). */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 14,
+          marginBottom: 18,
+        }}
+      >
+        <MetricTile label="TVL" publicTag sub={`${underlyingSymbol} under management`}>
+          {snapshot
+            ? `${Number(
+                formatUnits(BigInt(snapshot.decrypted_total_assets), assetDecimals),
+              ).toLocaleString("en-US", { maximumFractionDigits: 4 })} ${underlyingSymbol}`
+            : "—"}
+        </MetricTile>
+        <MetricTile label="NAV per share" publicTag sub={`${underlyingSymbol} per share`}>
+          {snapshot
+            ? (Number(snapshot.nav) * 10 ** DECIMALS_OFFSET).toLocaleString("en-US", {
+                maximumFractionDigits: 6,
+              })
+            : "—"}
+        </MetricTile>
+        <MetricTile label="APY" publicTag sub="Annualized, settler-reported">
+          {snapshot ? `${(snapshot.apy * 100).toFixed(2)}%` : "—"}
+        </MetricTile>
+      </div>
 
       {/* Shares metric (full width) */}
       <div style={{ marginBottom: 24 }}>
@@ -215,7 +262,12 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
           vaultAddress={vaultAddress}
           onClose={() => setFinalizeDepositOpen(false)}
           onSuccess={() => {
+            // Finalize deposit drains the claimable bucket and transfers escrowed shares to
+            // the user. Refresh every read the UI surfaces so the cards + metric tiles reflect
+            // the new state without a manual reload.
             refetchShares();
+            refetchClaimableDeposit();
+            refetchPendingDeposit();
           }}
         />
       )}
@@ -224,7 +276,10 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
           vaultAddress={vaultAddress}
           onClose={() => setFinalizeRedeemOpen(false)}
           onSuccess={() => {
+            // Finalize redeem drains the claimable bucket and sends assets out of the vault.
             refetchShares();
+            refetchClaimableRedeem();
+            refetchPendingRedeem();
           }}
         />
       )}
