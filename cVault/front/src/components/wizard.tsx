@@ -159,7 +159,7 @@ export function WizardSidebar({ step, steps }: { step: number; steps: readonly W
       >
         <MI name="verified_user" size={18} color="var(--ct-brand)" />
         <div style={{ font: "400 12px/17px var(--ct-font-body)", color: "var(--ct-fg-3)" }}>
-          Vaults are deployed as <b style={{ color: "var(--ct-fg-1)" }}>ERC-7540</b> contracts with the Nox encryption
+          Vaults are deployed as <b style={{ color: "var(--ct-fg-1)" }}>cERC-7540</b> contracts with the Nox encryption
           layer.
         </div>
       </div>

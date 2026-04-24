@@ -191,7 +191,7 @@ export default function AdminPickerPage() {
                   <Badge tone="success" icon="verified">
                     You own this
                   </Badge>
-                  <Badge tone="neutral">ERC-7540</Badge>
+                  <Badge tone="neutral">cERC-7540</Badge>
                 </div>
 
                 <div

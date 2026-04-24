@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Address } from "viem";
@@ -69,7 +68,18 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
   // vault page — otherwise wagmi/react-query happily reuses a pre-claim ZERO_HANDLE and the
   // `DecryptedAmount` shows "0" via its empty-state shortcut instead of the freshly-minted
   // share balance.
-  const sharedQueryOpts = { enabled: !!address, refetchOnMount: "always" as const, staleTime: 0 };
+  //
+  // `refetchInterval: 8000` picks up external state changes (typically the admin/settler
+  // calling `approveDeposit` / `approveRedeem` in a separate tx). Without polling the user
+  // would sit on stale `pending*` / `claimable*` handles until they manually reload the page.
+  // 8 s is a balance between responsiveness and RPC load for a small PoC.
+  const sharedQueryOpts = {
+    enabled: !!address,
+    refetchOnMount: "always" as const,
+    refetchOnWindowFocus: true,
+    refetchInterval: 8_000,
+    staleTime: 0,
+  };
 
   const { data: shares, refetch: refetchShares } = useReadContract({
     address: vaultAddress,

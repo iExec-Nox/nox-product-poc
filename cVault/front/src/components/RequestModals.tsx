@@ -28,8 +28,6 @@ import {
   requestRedeemExternalAbi,
 } from "@/abi/vaultOverloads";
 
-const SHARES_DECIMALS = 6;
-
 /**
  * Prominent inline CTA that routes the user to /account when their balance (cToken for the
  * deposit modal, shares for the redeem modal) is effectively empty — either because the handle
@@ -434,6 +432,18 @@ export function RequestRedeemModal({
 
   const [amount, setAmount] = useState("1");
 
+  // Vault shares decimals = asset decimals + `_decimalsOffset()` (6). The previous hardcoded
+  // `SHARES_DECIMALS = 6` broke for cRLC (9-decimal asset → 15-decimal shares): a user typing
+  // "1" would submit 1e6 atomic shares = 1e-9 display units, and the pending card showed
+  // "0.0000000001 twwRLC" instead of the intended 1.
+  const { data: assetAddress } = useReadContract({
+    address: vaultAddress,
+    abi: vaultAbi,
+    functionName: "asset",
+  });
+  const token = getTokenByConfidential(assetAddress as Address | undefined);
+  const shareDecimals = (token?.decimals ?? 6) + 6;
+
   const { data: shares } = useReadContract({
     address: vaultAddress,
     abi: vaultAbi,
@@ -448,7 +458,7 @@ export function RequestRedeemModal({
 
   let amountWei = 0n;
   try {
-    if (amount) amountWei = parseUnits(amount, SHARES_DECIMALS);
+    if (amount) amountWei = parseUnits(amount, shareDecimals);
   } catch {
     amountWei = 0n;
   }
@@ -547,7 +557,7 @@ export function RequestRedeemModal({
           Shares balance
         </span>
         <span style={{ font: "800 16px/22px var(--ct-font-display)", color: "var(--ct-fg-1)" }}>
-          <DecryptedAmount handle={shares as `0x${string}` | undefined} decimals={6} suffix={symbol} />
+          <DecryptedAmount handle={shares as `0x${string}` | undefined} decimals={shareDecimals} suffix={symbol} />
         </span>
       </div>
 

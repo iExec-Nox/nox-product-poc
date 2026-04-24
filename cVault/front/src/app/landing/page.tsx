@@ -9,7 +9,7 @@ import { NetworkChip } from "@/components/Shell";
 
 /**
  * W1 — Full-bleed landing page. The hero stays visible regardless of wallet state; the CTA
- * switches between "Connect Wallet" (opens RainbowKit modal) and "Go to Portfolio" (link).
+ * switches between "Connect Wallet" (opens RainbowKit modal) and "Explore vaults" (link).
  */
 export default function LandingPage() {
   const { isConnected } = useAccount();
@@ -140,7 +140,7 @@ export default function LandingPage() {
           {[
             { icon: "lock", label: "Encrypted balances" },
             { icon: "fact_check", label: "Selective disclosure" },
-            { icon: "bolt", label: "ERC-7540 async" },
+            { icon: "bolt", label: "cERC-7540 async" },
           ].map((p) => (
             <span
               key={p.label}
@@ -181,8 +181,8 @@ export default function LandingPage() {
                 boxShadow: "var(--ct-shadow-glow)",
               }}
             >
-              <MI name="dashboard" size={18} />
-              Go to Portfolio
+              <MI name="explore" size={18} />
+              Explore vaults
             </Link>
           ) : (
             <ConnectButton.Custom>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { useAccount } from "wagmi";
 import { MI } from "./ui";
 import { CHAIN_ID } from "@/config/contracts";
@@ -96,6 +96,49 @@ export function NetworkChip() {
   );
 }
 
+function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+  const [hover, setHover] = useState(false);
+  // Active > hover > resting. Hover bumps the background a touch and lightens the label so the
+  // user gets a clear affordance on every nav item without stealing the active-state emphasis.
+  const background = active
+    ? "rgba(255,255,255,0.05)"
+    : hover
+      ? "rgba(255,255,255,0.035)"
+      : "transparent";
+  const color = active ? "var(--ct-fg-1)" : hover ? "var(--ct-fg-2)" : "var(--ct-fg-4)";
+  const style = {
+    height: 36,
+    padding: "0 14px",
+    borderRadius: 9,
+    background,
+    font: `${active ? 700 : 600} 14px/36px var(--ct-font-display)`,
+    color,
+    textDecoration: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    transition: "background 120ms ease, color 120ms ease",
+  } as const;
+  const common = {
+    onMouseEnter: () => setHover(true),
+    onMouseLeave: () => setHover(false),
+    style,
+  };
+  if (item.external) {
+    return (
+      <a href={item.href} target="_blank" rel="noopener noreferrer" {...common}>
+        {item.label}
+        <MI name="open_in_new" size={12} color={hover ? "var(--ct-fg-4)" : "var(--ct-fg-5)"} />
+      </a>
+    );
+  }
+  return (
+    <Link href={item.href} {...common}>
+      {item.label}
+    </Link>
+  );
+}
+
 export function TopNav() {
   const pathname = usePathname() ?? "";
   return (
@@ -155,34 +198,9 @@ export function TopNav() {
       <div style={{ width: 1, height: 22, background: "rgba(255,255,255,0.08)" }} />
 
       <nav style={{ display: "flex", gap: 4 }}>
-        {NAV.map((it) => {
-          const isActive = it.match(pathname);
-          const style = {
-            height: 36,
-            padding: "0 14px",
-            borderRadius: 9,
-            background: isActive ? "rgba(255,255,255,0.05)" : "transparent",
-            font: `${isActive ? 700 : 600} 14px/36px var(--ct-font-display)`,
-            color: isActive ? "var(--ct-fg-1)" : "var(--ct-fg-4)",
-            textDecoration: "none",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-          } as const;
-          if (it.external) {
-            return (
-              <a key={it.href} href={it.href} target="_blank" rel="noopener noreferrer" style={style}>
-                {it.label}
-                <MI name="open_in_new" size={12} color="var(--ct-fg-5)" />
-              </a>
-            );
-          }
-          return (
-            <Link key={it.href} href={it.href} style={style}>
-              {it.label}
-            </Link>
-          );
-        })}
+        {NAV.map((it) => (
+          <NavLink key={it.href} item={it} active={it.match(pathname)} />
+        ))}
       </nav>
 
       <div style={{ flex: 1 }} />

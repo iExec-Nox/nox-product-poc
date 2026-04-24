@@ -3,7 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "cVault — Confidential ERC-7540 Vaults",
+  title: "cVault — cERC-7540 Vaults",
   description: "Institutional-grade privacy for on-chain vaults. Powered by iExec Nox.",
 };
 

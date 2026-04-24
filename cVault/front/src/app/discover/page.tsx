@@ -137,7 +137,7 @@ function VaultCard({ name, symbol, asset, createdAt, href, vaultAddress }: Vault
           <Badge tone="brand" icon="lock">
             Confidential
           </Badge>
-          <Badge tone="neutral">ERC-7540</Badge>
+          <Badge tone="neutral">cERC-7540</Badge>
           <Badge tone="neutral">{asset}</Badge>
         </div>
 
@@ -276,7 +276,7 @@ export default function DiscoverPage() {
               marginTop: 8,
             }}
           >
-            Browse confidential vaults built on ERC-7540.
+            Browse vaults built on cERC-7540.
           </div>
         </div>
         <Link href="/create" style={{ textDecoration: "none", flexShrink: 0 }}>

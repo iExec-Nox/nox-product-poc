@@ -205,7 +205,7 @@ export default function VaultInfoPage() {
           >
             <MI name="info" size={16} color="var(--ct-brand)" style={{ marginTop: 2 }} />
             <div style={{ font: "400 12px/18px var(--ct-font-body)", color: "var(--ct-fg-3)" }}>
-              Your vault will be issued as an <b style={{ color: "var(--ct-fg-1)" }}>ERC-7540</b> tokenized share with
+              Your vault will be issued as a <b style={{ color: "var(--ct-fg-1)" }}>cERC-7540</b> tokenized share with
               Nox&apos;s confidentiality layer. Depositors receive shares minted 1:1 with NAV at time of request
               approval.
             </div>

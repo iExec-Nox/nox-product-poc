@@ -38,7 +38,7 @@ export default function ReviewPage() {
         <KV label="Vault name">{state.name}</KV>
         <KV label="Vault symbol">{state.symbol}</KV>
         <KV label="Standard">
-          <Badge tone="neutral">ERC-7540</Badge>
+          <Badge tone="neutral">cERC-7540</Badge>
         </KV>
         <KV label="Confidentiality" last>
           <Badge tone="brand" icon="lock">Nox protocol</Badge>
