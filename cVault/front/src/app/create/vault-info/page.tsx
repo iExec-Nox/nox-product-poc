@@ -188,7 +188,7 @@ export default function VaultInfoPage() {
           >
             <TextInput
               value={state.symbol}
-              onChange={(v) => setState({ symbol: v.toUpperCase() })}
+              onChange={(v) => setState({ symbol: v })}
               placeholder={symbolPlaceholder}
             />
             <WarnNote>This parameter is immutable after deployment.</WarnNote>

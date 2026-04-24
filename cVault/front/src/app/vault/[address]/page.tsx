@@ -10,7 +10,12 @@ import { Shell } from "@/components/Shell";
 import { Badge, MI, PrimaryButton, SecondaryButton } from "@/components/ui";
 import { MetricTile, VaultHero } from "@/components/lp";
 import { DecryptedAmount } from "@/components/DecryptedAmount";
-import { RequestDepositModal, RequestRedeemModal } from "@/components/RequestModals";
+import {
+  FinalizeDepositModal,
+  FinalizeRedeemModal,
+  RequestDepositModal,
+  RequestRedeemModal,
+} from "@/components/RequestModals";
 import { useDecryptedHandle } from "@/hooks/useDecryptedHandle";
 
 import { ZERO_HANDLE } from "@/config/contracts";
@@ -27,6 +32,8 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
   const { address } = useAccount();
   const [depositOpen, setDepositOpen] = useState(false);
   const [redeemOpen, setRedeemOpen] = useState(false);
+  const [finalizeDepositOpen, setFinalizeDepositOpen] = useState(false);
+  const [finalizeRedeemOpen, setFinalizeRedeemOpen] = useState(false);
 
   const { data: vaultName } = useReadContract({
     address: vaultAddress,
@@ -166,7 +173,7 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
                   kind="deposit"
                   handle={claimableDeposit as `0x${string}`}
                   suffix="shares"
-                  href={`/vault/${vaultAddress}/deposit`}
+                  onFinalize={() => setFinalizeDepositOpen(true)}
                 />
               )}
               {hasClaimableRedeem && (
@@ -175,7 +182,7 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
                   kind="redeem"
                   handle={claimableRedeem as `0x${string}`}
                   suffix="cUSDC"
-                  href={`/vault/${vaultAddress}/redeem`}
+                  onFinalize={() => setFinalizeRedeemOpen(true)}
                 />
               )}
             </RequestSection>
@@ -199,6 +206,24 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
           onClose={() => setRedeemOpen(false)}
           onSuccess={() => {
             refetchPendingRedeem();
+            refetchShares();
+          }}
+        />
+      )}
+      {finalizeDepositOpen && (
+        <FinalizeDepositModal
+          vaultAddress={vaultAddress}
+          onClose={() => setFinalizeDepositOpen(false)}
+          onSuccess={() => {
+            refetchShares();
+          }}
+        />
+      )}
+      {finalizeRedeemOpen && (
+        <FinalizeRedeemModal
+          vaultAddress={vaultAddress}
+          onClose={() => setFinalizeRedeemOpen(false)}
+          onSuccess={() => {
             refetchShares();
           }}
         />
@@ -250,13 +275,13 @@ function RequestCard({
   kind,
   handle,
   suffix,
-  href,
+  onFinalize,
 }: {
   status: "pending" | "ready";
   kind: "deposit" | "redeem";
   handle: `0x${string}`;
   suffix: string;
-  href?: string;
+  onFinalize?: () => void;
 }) {
   const { state } = useDecryptedHandle(status === "ready" ? handle : undefined);
   const revealed = state.status === "ok";
@@ -372,12 +397,10 @@ function RequestCard({
       </div>
 
       {/* Footer: action (if ready + >0) or hint */}
-      {status === "ready" && canFinalize && href ? (
-        <Link href={href} style={{ textDecoration: "none" }}>
-          <PrimaryButton icon="check" style={{ width: "100%" }}>
-            {kind === "deposit" ? "Finalize deposit" : "Finalize redeem"}
-          </PrimaryButton>
-        </Link>
+      {status === "ready" && canFinalize && onFinalize ? (
+        <PrimaryButton icon="check" onClick={onFinalize} style={{ width: "100%" }}>
+          {kind === "deposit" ? "Finalize deposit" : "Finalize redeem"}
+        </PrimaryButton>
       ) : status === "ready" ? (
         <PrimaryButton icon="check" disabled style={{ width: "100%" }}>
           {kind === "deposit" ? "Finalize deposit" : "Finalize redeem"}

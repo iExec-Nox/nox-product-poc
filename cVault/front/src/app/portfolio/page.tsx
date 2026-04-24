@@ -573,13 +573,7 @@ function PositionCard({
           </span>
           <span style={{ flex: 1 }} />
           <Link
-            href={
-              hasClaimableDeposit
-                ? `/vault/${vault.address}/deposit`
-                : hasClaimableRedeem
-                  ? `/vault/${vault.address}/redeem`
-                  : `/vault/${vault.address}`
-            }
+            href={`/vault/${vault.address}`}
             style={{
               color: "#FCD34D",
               font: "700 12px/17px var(--ct-font-display)",

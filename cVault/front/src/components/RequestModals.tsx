@@ -6,10 +6,11 @@ import type { Address, Hex } from "viem";
 import { parseUnits } from "viem";
 import { useAccount, usePublicClient, useReadContract, useWalletClient } from "wagmi";
 
-import { MI, PrimaryButton, StepList, WarnNote } from "./ui";
+import { MI, PrimaryButton, SecondaryButton, StepList, WarnNote } from "./ui";
 import { DecryptedAmount } from "./DecryptedAmount";
 import { useStepRunner } from "@/lib/useStepRunner";
 import { useHandleClient } from "@/hooks/useHandleClient";
+import { useDecryptedHandle } from "@/hooks/useDecryptedHandle";
 import { bumpFees } from "@/lib/bumpFees";
 
 import {
@@ -20,9 +21,60 @@ import {
 import { cusdcAbi } from "@/abi/cusdc";
 import { noxComputeAbi } from "@/abi/nox";
 import { vaultAbi } from "@/abi/vault";
-import { requestDepositExternalAbi, requestRedeemExternalAbi } from "@/abi/vaultOverloads";
+import {
+  depositClaimAbi,
+  redeemClaimAbi,
+  requestDepositExternalAbi,
+  requestRedeemExternalAbi,
+} from "@/abi/vaultOverloads";
 
 const SHARES_DECIMALS = 6;
+
+/**
+ * Prominent inline CTA that routes the user to /account when their balance (cToken for the
+ * deposit modal, shares for the redeem modal) is effectively empty — either because the handle
+ * is the zero-handle (never initialised) or because it decrypts to 0.
+ */
+function EmptyBalanceCTA({ title, description }: { title: string; description: string }) {
+  return (
+    <div
+      style={{
+        marginTop: 12,
+        padding: 14,
+        borderRadius: 12,
+        background: "rgba(245,158,11,0.07)",
+        border: "1px solid rgba(245,158,11,0.28)",
+        display: "flex",
+        gap: 12,
+        alignItems: "center",
+      }}
+    >
+      <div
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 9,
+          flexShrink: 0,
+          background: "rgba(245,158,11,0.14)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <MI name="account_balance_wallet" size={17} color="var(--ct-warn, #F59E0B)" />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ font: "700 13px/17px var(--ct-font-display)", color: "#FCD34D" }}>{title}</div>
+        <div style={{ font: "400 12px/17px var(--ct-font-body)", color: "var(--ct-fg-3)", marginTop: 2 }}>
+          {description}
+        </div>
+      </div>
+      <Link href="/account" style={{ textDecoration: "none", flexShrink: 0 }}>
+        <SecondaryButton icon="arrow_forward">Go to Account</SecondaryButton>
+      </Link>
+    </div>
+  );
+}
 
 // ---------- Shared modal shell ----------
 function ModalShell({
@@ -143,6 +195,12 @@ export function RequestDepositModal({
     query: { enabled: !!address && !!token },
   });
   const hasBalance = confidentialHandle && confidentialHandle !== ZERO_HANDLE;
+  // Mirror the DecryptedAmount state for the balance handle — if the user has already revealed
+  // it, we catch the decrypted-to-zero case (non-zero handle, but value = 0) and route them to
+  // /account the same way we do for a null handle.
+  const { state: balanceState } = useDecryptedHandle(confidentialHandle as `0x${string}` | undefined);
+  const isRevealedEmpty = balanceState.status === "ok" && balanceState.value === 0n;
+  const isEffectivelyEmpty = !hasBalance || isRevealedEmpty;
 
   let amountWei = 0n;
   try {
@@ -156,7 +214,7 @@ export function RequestDepositModal({
     !!publicClient &&
     !!address &&
     !!token &&
-    !!hasBalance &&
+    !isEffectivelyEmpty &&
     !!handleClient &&
     amountWei > 0n &&
     !runner.running;
@@ -326,16 +384,11 @@ export function RequestDepositModal({
         </span>
       </div>
 
-      {token && !hasBalance && (
-        <div style={{ marginTop: 12 }}>
-          <WarnNote icon="info">
-            No {confidentialSymbol} in your account.{" "}
-            <Link href="/account" style={{ color: "var(--ct-brand)", textDecoration: "underline" }}>
-              Wrap some {underlyingSymbol} first
-            </Link>
-            .
-          </WarnNote>
-        </div>
+      {token && isEffectivelyEmpty && (
+        <EmptyBalanceCTA
+          title={`No ${confidentialSymbol} available`}
+          description={`Wrap ${underlyingSymbol} from the Account tab to get ${confidentialSymbol} to deposit.`}
+        />
       )}
 
       <PrimaryButton
@@ -389,6 +442,9 @@ export function RequestRedeemModal({
     query: { enabled: !!address },
   });
   const hasShares = shares && shares !== ZERO_HANDLE;
+  const { state: sharesState } = useDecryptedHandle(shares as `0x${string}` | undefined);
+  const isSharesEmpty =
+    !hasShares || (sharesState.status === "ok" && sharesState.value === 0n);
 
   let amountWei = 0n;
   try {
@@ -401,7 +457,7 @@ export function RequestRedeemModal({
     !!walletClient &&
     !!publicClient &&
     !!address &&
-    !!hasShares &&
+    !isSharesEmpty &&
     !!handleClient &&
     amountWei > 0n &&
     !runner.running;
@@ -526,10 +582,11 @@ export function RequestRedeemModal({
         <span style={{ font: "700 15px/20px var(--ct-font-display)", color: "var(--ct-fg-4)" }}>{symbol}</span>
       </div>
 
-      {!hasShares && (
-        <div style={{ marginTop: 12 }}>
-          <WarnNote icon="info">No shares balance to redeem.</WarnNote>
-        </div>
+      {isSharesEmpty && (
+        <EmptyBalanceCTA
+          title="No shares to redeem"
+          description="You don't hold any shares in this vault yet. Go to Account to wrap, then deposit."
+        />
       )}
 
       <PrimaryButton
@@ -540,6 +597,241 @@ export function RequestRedeemModal({
         style={{ width: "100%", marginTop: 16, height: 48 }}
       >
         {runner.running ? "Submitting…" : runner.done ? "Submitted" : "Request redeem"}
+      </PrimaryButton>
+
+      {runner.steps.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <StepList steps={runner.steps} />
+        </div>
+      )}
+    </ModalShell>
+  );
+}
+
+// ---------- Finalize Deposit modal ----------
+/**
+ * OZ-style deposit claim: shares were minted to the vault at `approveDeposit`, so this is a pure
+ * transfer from the vault to the receiver. No NAV calc, no FHE compute beyond the transfer.
+ */
+export function FinalizeDepositModal({
+  vaultAddress,
+  onClose,
+  onSuccess,
+}: {
+  vaultAddress: Address;
+  onClose: () => void;
+  onSuccess?: () => void;
+}) {
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
+  const runner = useStepRunner();
+
+  const { data: claimableShares } = useReadContract({
+    address: vaultAddress,
+    abi: vaultAbi,
+    functionName: "claimableDepositRequest",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address, refetchOnMount: "always" as const, staleTime: 0 },
+  });
+  const hasClaimable = claimableShares && claimableShares !== ZERO_HANDLE;
+
+  const { data: vaultSymbol } = useReadContract({
+    address: vaultAddress,
+    abi: vaultAbi,
+    functionName: "symbol",
+  });
+  const symbol = (vaultSymbol as string | undefined) ?? "shares";
+
+  const canSubmit =
+    !!walletClient && !!publicClient && !!address && !!hasClaimable && !runner.running;
+
+  async function submit() {
+    if (!walletClient || !publicClient || !address) return;
+    const OWNER = address;
+    await runner.runAll([
+      {
+        label: "Claim minted shares (transfer from vault)",
+        run: async () => {
+          const fees = await bumpFees(publicClient);
+          const tx = await walletClient.writeContract({
+            address: vaultAddress,
+            abi: depositClaimAbi,
+            functionName: "deposit",
+            args: [OWNER, OWNER],
+            ...fees,
+          });
+          await publicClient.waitForTransactionReceipt({ hash: tx });
+          return tx;
+        },
+      },
+    ]);
+    if (runner.error === null) onSuccess?.();
+  }
+
+  return (
+    <ModalShell
+      title="Finalize deposit"
+      subtitle="Shares were already minted at approval time. This just transfers them into your wallet."
+      onClose={onClose}
+    >
+      <div
+        style={{
+          padding: "14px 16px",
+          borderRadius: 12,
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 14,
+        }}
+      >
+        <MI name="check_circle" size={14} color="var(--ct-success-light, #34d399)" />
+        <span style={{ flex: 1, font: "600 13px/18px var(--ct-font-body)", color: "var(--ct-fg-3)" }}>
+          Claimable shares
+        </span>
+        <span style={{ font: "800 16px/22px var(--ct-font-display)", color: "var(--ct-fg-1)" }}>
+          <DecryptedAmount
+            handle={claimableShares as `0x${string}` | undefined}
+            decimals={SHARES_DECIMALS}
+            suffix={symbol}
+          />
+        </span>
+      </div>
+
+      {!hasClaimable && (
+        <div style={{ marginTop: 12 }}>
+          <WarnNote icon="info">Nothing to claim yet. The admin has to approve your pending deposit first.</WarnNote>
+        </div>
+      )}
+
+      <PrimaryButton
+        icon="check"
+        onClick={submit}
+        disabled={!canSubmit}
+        loading={runner.running}
+        style={{ width: "100%", marginTop: 16, height: 48 }}
+      >
+        {runner.running ? "Claiming…" : runner.done ? "Claimed" : "Finalize deposit"}
+      </PrimaryButton>
+
+      {runner.steps.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <StepList steps={runner.steps} />
+        </div>
+      )}
+    </ModalShell>
+  );
+}
+
+// ---------- Finalize Redeem modal ----------
+/**
+ * OZ-style redeem claim: assets were reserved and escrowed shares burned at `approveRedeem`, so
+ * this is a pure `_transferOut` of the reserved underlying to the receiver.
+ */
+export function FinalizeRedeemModal({
+  vaultAddress,
+  onClose,
+  onSuccess,
+}: {
+  vaultAddress: Address;
+  onClose: () => void;
+  onSuccess?: () => void;
+}) {
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
+  const runner = useStepRunner();
+
+  const { data: claimableAssets } = useReadContract({
+    address: vaultAddress,
+    abi: vaultAbi,
+    functionName: "claimableRedeemRequest",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address, refetchOnMount: "always" as const, staleTime: 0 },
+  });
+  const hasClaimable = claimableAssets && claimableAssets !== ZERO_HANDLE;
+
+  const { data: assetAddress } = useReadContract({
+    address: vaultAddress,
+    abi: vaultAbi,
+    functionName: "asset",
+  });
+  const token = getTokenByConfidential(assetAddress as Address | undefined);
+  const confidentialSymbol = token?.confidentialSymbol ?? "cToken";
+
+  const canSubmit =
+    !!walletClient && !!publicClient && !!address && !!hasClaimable && !runner.running;
+
+  async function submit() {
+    if (!walletClient || !publicClient || !address) return;
+    const OWNER = address;
+    await runner.runAll([
+      {
+        label: `Claim redeem (receive ${confidentialSymbol})`,
+        run: async () => {
+          const fees = await bumpFees(publicClient);
+          const tx = await walletClient.writeContract({
+            address: vaultAddress,
+            abi: redeemClaimAbi,
+            functionName: "redeem",
+            args: [OWNER, OWNER],
+            ...fees,
+          });
+          await publicClient.waitForTransactionReceipt({ hash: tx });
+          return tx;
+        },
+      },
+    ]);
+    if (runner.error === null) onSuccess?.();
+  }
+
+  return (
+    <ModalShell
+      title="Finalize redeem"
+      subtitle="Assets were reserved at approval time. This transfers them to your wallet."
+      onClose={onClose}
+    >
+      <div
+        style={{
+          padding: "14px 16px",
+          borderRadius: 12,
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 14,
+        }}
+      >
+        <MI name="check_circle" size={14} color="var(--ct-success-light, #34d399)" />
+        <span style={{ flex: 1, font: "600 13px/18px var(--ct-font-body)", color: "var(--ct-fg-3)" }}>
+          Claimable {confidentialSymbol}
+        </span>
+        <span style={{ font: "800 16px/22px var(--ct-font-display)", color: "var(--ct-fg-1)" }}>
+          <DecryptedAmount
+            handle={claimableAssets as `0x${string}` | undefined}
+            decimals={token?.decimals ?? 6}
+            suffix={confidentialSymbol}
+          />
+        </span>
+      </div>
+
+      {!hasClaimable && (
+        <div style={{ marginTop: 12 }}>
+          <WarnNote icon="info">Nothing to claim yet. The admin has to approve your pending redeem first.</WarnNote>
+        </div>
+      )}
+
+      <PrimaryButton
+        icon="check"
+        onClick={submit}
+        disabled={!canSubmit}
+        loading={runner.running}
+        style={{ width: "100%", marginTop: 16, height: 48 }}
+      >
+        {runner.running ? "Claiming…" : runner.done ? "Claimed" : "Finalize redeem"}
       </PrimaryButton>
 
       {runner.steps.length > 0 && (
