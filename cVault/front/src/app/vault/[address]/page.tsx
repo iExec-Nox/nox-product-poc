@@ -247,22 +247,25 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
               description="Settlement complete — finalize to update your balance."
             >
               {hasClaimableDeposit && (
+                // `claimableDepositRequest` returns the settled asset amount per ERC-7540 spec,
+                // not the minted share amount. Display with asset decimals + asset symbol.
                 <RequestCard
                   status="ready"
                   kind="deposit"
                   handle={claimableDeposit as `0x${string}`}
-                  suffix={symbol}
-                  decimals={shareDecimals}
+                  suffix={token?.confidentialSymbol ?? "cUSDC"}
+                  decimals={assetDecimals}
                   onFinalize={() => setFinalizeDepositOpen(true)}
                 />
               )}
               {hasClaimableRedeem && (
+                // `claimableRedeemRequest` returns the settled share amount per ERC-7540 spec.
                 <RequestCard
                   status="ready"
                   kind="redeem"
                   handle={claimableRedeem as `0x${string}`}
-                  suffix={token?.confidentialSymbol ?? "cUSDC"}
-                  decimals={assetDecimals}
+                  suffix={symbol}
+                  decimals={shareDecimals}
                   onFinalize={() => setFinalizeRedeemOpen(true)}
                 />
               )}

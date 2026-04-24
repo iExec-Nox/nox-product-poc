@@ -350,26 +350,35 @@ export default function PrivacyPage() {
       <WizardCard
         title="Initial viewers"
         subtitle="Addresses that can decrypt vault-wide metrics (TVL, depositors, transaction history) without holding shares."
-        badge={<Badge tone="brand" icon="shield">Full confidentiality</Badge>}
+        badge={<Badge tone="neutral" icon="schedule">Coming soon</Badge>}
       >
-        {viewers.length === 0 ? (
-          <EmptyViewers />
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {viewers.map((v, i) => (
-              <ViewerRow
-                key={`${v.address}-${i}`}
-                v={v}
-                onRemove={() => removeViewer(i)}
-                onRename={(label) => renameViewer(i, label)}
-              />
-            ))}
-          </div>
-        )}
+        <div
+          aria-disabled
+          style={{
+            pointerEvents: "none",
+            opacity: 0.55,
+            userSelect: "none",
+          }}
+        >
+          {viewers.length === 0 ? (
+            <EmptyViewers />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {viewers.map((v, i) => (
+                <ViewerRow
+                  key={`${v.address}-${i}`}
+                  v={v}
+                  onRemove={() => removeViewer(i)}
+                  onRename={(label) => renameViewer(i, label)}
+                />
+              ))}
+            </div>
+          )}
 
-        <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "18px 0" }} />
+          <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "18px 0" }} />
 
-        <AddViewerForm existing={viewers} onAdd={addViewer} />
+          <AddViewerForm existing={viewers} onAdd={addViewer} />
+        </div>
 
         <div
           style={{
@@ -378,9 +387,8 @@ export default function PrivacyPage() {
             color: "var(--ct-fg-5)",
           }}
         >
-          Viewers can decrypt vault-wide metrics and LP positions. Access can be revoked after deployment from the ACL
-          manager. <em>(Wire-up to <code>addViewer</code> pending — viewers list is captured but not yet sent
-          on-chain.)</em>
+          Viewer ACL management is not wired up yet for this PoC. The UI is shown as a preview of what the
+          production flow will look like.
         </div>
       </WizardCard>
 

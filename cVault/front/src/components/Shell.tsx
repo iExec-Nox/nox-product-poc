@@ -18,7 +18,6 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { href: "/discover", label: "Vaults", match: (p) => p.startsWith("/discover") || p.startsWith("/vault") },
-  { href: "/portfolio", label: "Portfolio", match: (p) => p === "/portfolio" },
   { href: "/account", label: "Account", match: (p) => p.startsWith("/account") },
   { href: "https://docs.iex.ec/", label: "Docs", match: () => false, external: true },
 ];
@@ -45,7 +44,7 @@ export function TestnetBanner() {
   );
 }
 
-function NetworkChip() {
+export function NetworkChip() {
   // Read the chain directly from the connected account. `useChainId()` from wagmi reads the
   // store's "current chain" which can be stale during hydration and reports the first chain
   // from the config before the connector actually reports one — leading to a green dot on an

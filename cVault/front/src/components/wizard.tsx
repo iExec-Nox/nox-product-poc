@@ -5,6 +5,7 @@
 
 import { CSSProperties, ReactNode, useState } from "react";
 import { MI, PrimaryButton } from "./ui";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 // ---------- Wizard sidebar ----------
 
@@ -16,6 +17,7 @@ export function WizardSidebar({ step, steps }: { step: number; steps: readonly W
   const pct = Math.round((clamped / total) * 100);
   return (
     <div
+      data-wizard-sidebar
       style={{
         width: 300,
         padding: "40px 28px",
@@ -240,7 +242,7 @@ export function WizardFooter({
         justifyContent: "space-between",
         alignItems: "center",
         paddingTop: 24,
-        marginTop: 8,
+        marginTop: "auto",
         borderTop: "1px solid rgba(255,255,255,0.06)",
       }}
     >
@@ -285,11 +287,37 @@ export function WizardShell({
   steps: readonly WizardStep[];
   children: ReactNode;
 }) {
+  // Hide the fixed-width sidebar on narrow viewports (laptop split-screens, tablets). Below
+  // 900px the wizard runs full-width; the step progress is still reflected by the browser's
+  // URL + the page title.
+  const narrow = useMediaQuery("(max-width: 900px)");
   return (
     <div style={{ display: "flex", flex: 1, minHeight: 0, alignSelf: "stretch", width: "100%" }}>
-      <WizardSidebar step={step} steps={steps} />
-      <div style={{ flex: 1, overflowY: "auto", padding: "40px 56px" }}>
-        <div style={{ maxWidth: 860, margin: "0 auto", display: "flex", flexDirection: "column", gap: 24 }}>
+      {!narrow && <WizardSidebar step={step} steps={steps} />}
+      <div
+        data-wizard-content
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: narrow ? "24px 16px" : "40px 56px",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Inner column stretches to fill the vertical space so children flagged with
+            `marginTop: auto` (typically WizardFooter) pin to the bottom of the viewport
+            when the content above is shorter than the scroll area. */}
+        <div
+          style={{
+            maxWidth: 860,
+            width: "100%",
+            margin: "0 auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 24,
+            flex: 1,
+          }}
+        >
           {children}
         </div>
       </div>

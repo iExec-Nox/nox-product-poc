@@ -76,3 +76,12 @@ button {
 [data-rk] {
   --rk-colors-accentColor: var(--ct-brand);
 }
+
+/* ──────────────── Wizard responsive ────────────────
+ * The wizard default layout is a 300px sidebar + fluid content. Below 900px the sidebar
+ * collapses (keeps the top-nav and progress header as the only wizard chrome) and content
+ * padding shrinks so forms stay usable on laptops and narrow split-screens. */
+@media (max-width: 900px) {
+  [data-wizard-sidebar] { display: none !important; }
+  [data-wizard-content] { padding: 24px 16px !important; }
+}

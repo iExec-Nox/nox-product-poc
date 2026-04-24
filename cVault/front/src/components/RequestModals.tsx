@@ -627,21 +627,28 @@ export function FinalizeDepositModal({
   const { data: walletClient } = useWalletClient();
   const runner = useStepRunner();
 
-  const { data: claimableShares } = useReadContract({
+  // Per ERC-7540, `claimableDepositRequest` exposes the settled ASSET amount (not shares). The
+  // matching share amount was pre-minted to the vault at `approveDeposit` time and is
+  // transferred on claim. We display the asset amount here because that's what the spec-
+  // compliant view surfaces; the resulting shares are visible on the `/vault/[address]`
+  // position tile post-claim.
+  const { data: claimableAssets } = useReadContract({
     address: vaultAddress,
     abi: vaultAbi,
     functionName: "claimableDepositRequest",
     args: address ? [address] : undefined,
     query: { enabled: !!address, refetchOnMount: "always" as const, staleTime: 0 },
   });
-  const hasClaimable = claimableShares && claimableShares !== ZERO_HANDLE;
+  const hasClaimable = claimableAssets && claimableAssets !== ZERO_HANDLE;
 
-  const { data: vaultSymbol } = useReadContract({
+  const { data: assetAddress } = useReadContract({
     address: vaultAddress,
     abi: vaultAbi,
-    functionName: "symbol",
+    functionName: "asset",
   });
-  const symbol = (vaultSymbol as string | undefined) ?? "shares";
+  const token = getTokenByConfidential(assetAddress as Address | undefined);
+  const assetDecimals = token?.decimals ?? 6;
+  const confidentialSymbol = token?.confidentialSymbol ?? "cToken";
 
   const canSubmit =
     !!walletClient && !!publicClient && !!address && !!hasClaimable && !runner.running;
@@ -689,13 +696,13 @@ export function FinalizeDepositModal({
       >
         <MI name="check_circle" size={14} color="var(--ct-success-light, #34d399)" />
         <span style={{ flex: 1, font: "600 13px/18px var(--ct-font-body)", color: "var(--ct-fg-3)" }}>
-          Claimable shares
+          Claimable {confidentialSymbol}
         </span>
         <span style={{ font: "800 16px/22px var(--ct-font-display)", color: "var(--ct-fg-1)" }}>
           <DecryptedAmount
-            handle={claimableShares as `0x${string}` | undefined}
-            decimals={SHARES_DECIMALS}
-            suffix={symbol}
+            handle={claimableAssets as `0x${string}` | undefined}
+            decimals={assetDecimals}
+            suffix={confidentialSymbol}
           />
         </span>
       </div>
@@ -744,14 +751,18 @@ export function FinalizeRedeemModal({
   const { data: walletClient } = useWalletClient();
   const runner = useStepRunner();
 
-  const { data: claimableAssets } = useReadContract({
+  // Per ERC-7540, `claimableRedeemRequest` exposes the settled SHARE amount (not assets).
+  // The matching asset amount was reserved at `approveRedeem` time and is transferred out on
+  // claim. Display the share amount here per spec; the user's underlying balance updates on
+  // their wallet after the claim.
+  const { data: claimableShares } = useReadContract({
     address: vaultAddress,
     abi: vaultAbi,
     functionName: "claimableRedeemRequest",
     args: address ? [address] : undefined,
     query: { enabled: !!address, refetchOnMount: "always" as const, staleTime: 0 },
   });
-  const hasClaimable = claimableAssets && claimableAssets !== ZERO_HANDLE;
+  const hasClaimable = claimableShares && claimableShares !== ZERO_HANDLE;
 
   const { data: assetAddress } = useReadContract({
     address: vaultAddress,
@@ -760,6 +771,14 @@ export function FinalizeRedeemModal({
   });
   const token = getTokenByConfidential(assetAddress as Address | undefined);
   const confidentialSymbol = token?.confidentialSymbol ?? "cToken";
+  const { data: vaultSymbol } = useReadContract({
+    address: vaultAddress,
+    abi: vaultAbi,
+    functionName: "symbol",
+  });
+  const shareSymbol = (vaultSymbol as string | undefined) ?? "shares";
+  // Vault share decimals = underlying + `_decimalsOffset()` (6, mirror of the contract const).
+  const shareDecimals = (token?.decimals ?? 6) + 6;
 
   const canSubmit =
     !!walletClient && !!publicClient && !!address && !!hasClaimable && !runner.running;
@@ -807,13 +826,13 @@ export function FinalizeRedeemModal({
       >
         <MI name="check_circle" size={14} color="var(--ct-success-light, #34d399)" />
         <span style={{ flex: 1, font: "600 13px/18px var(--ct-font-body)", color: "var(--ct-fg-3)" }}>
-          Claimable {confidentialSymbol}
+          Claimable {shareSymbol}
         </span>
         <span style={{ font: "800 16px/22px var(--ct-font-display)", color: "var(--ct-fg-1)" }}>
           <DecryptedAmount
-            handle={claimableAssets as `0x${string}` | undefined}
-            decimals={token?.decimals ?? 6}
-            suffix={confidentialSymbol}
+            handle={claimableShares as `0x${string}` | undefined}
+            decimals={shareDecimals}
+            suffix={shareSymbol}
           />
         </span>
       </div>

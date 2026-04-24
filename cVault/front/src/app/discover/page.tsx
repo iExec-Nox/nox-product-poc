@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { usePublicClient } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
@@ -23,10 +24,10 @@ type OnChainVault = {
 type VaultCardProps = {
   name: string;
   symbol: string;
-  chain: string;
   asset: string;
   createdAt: number | null;
   href: string;
+  vaultAddress: Address;
 };
 
 function formatCreatedAt(ts: number | null): string {
@@ -35,29 +36,41 @@ function formatCreatedAt(ts: number | null): string {
   return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
-function VaultCard({ name, symbol, chain, asset, createdAt, href }: VaultCardProps) {
+function VaultCard({ name, symbol, asset, createdAt, href, vaultAddress }: VaultCardProps) {
+  const router = useRouter();
   const [hover, setHover] = useState(false);
+  // Use a div + onClick instead of wrapping the card in `<Link>`. The subtitle contains an
+  // Arbiscan `<a>`, and nesting anchors is invalid HTML (Next's hydration checker complains).
+  const goToVault = () => router.push(href);
   return (
-    <Link href={href} style={{ textDecoration: "none" }}>
-      <div
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        style={{
-          padding: 22,
-          borderRadius: 20,
-          background: "var(--ct-surface-1)",
-          border: `1px solid ${hover ? "var(--ct-brand)" : "rgba(255,255,255,0.08)"}`,
-          boxShadow: hover
-            ? "0 0 0 1px var(--ct-brand), 0 10px 32px rgba(71,37,244,0.22)"
-            : "var(--ct-shadow-glow-soft)",
-          transform: hover ? "translateY(-2px)" : "none",
-          transition: "border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease",
-          display: "flex",
-          flexDirection: "column",
-          gap: 18,
-          cursor: "pointer",
-        }}
-      >
+    <div
+      onClick={goToVault}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          goToVault();
+        }
+      }}
+      role="link"
+      tabIndex={0}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        padding: 22,
+        borderRadius: 20,
+        background: "var(--ct-surface-1)",
+        border: `1px solid ${hover ? "var(--ct-brand)" : "rgba(255,255,255,0.08)"}`,
+        boxShadow: hover
+          ? "0 0 0 1px var(--ct-brand), 0 10px 32px rgba(71,37,244,0.22)"
+          : "var(--ct-shadow-glow-soft)",
+        transform: hover ? "translateY(-2px)" : "none",
+        transition: "border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+        display: "flex",
+        flexDirection: "column",
+        gap: 18,
+        cursor: "pointer",
+      }}
+    >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div
             style={{
@@ -87,8 +100,35 @@ function VaultCard({ name, symbol, chain, asset, createdAt, href }: VaultCardPro
             >
               {name}
             </div>
-            <div style={{ font: "500 13px/18px var(--ct-font-ui)", color: "var(--ct-fg-5)" }}>
-              ${symbol} · {chain}
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                font: "500 13px/18px var(--ct-font-ui)",
+                color: "var(--ct-fg-5)",
+              }}
+            >
+              <span>${symbol}</span>
+              <span style={{ opacity: 0.5 }}>·</span>
+              <a
+                href={`https://sepolia.arbiscan.io/address/${vaultAddress}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title={`View ${vaultAddress} on Arbiscan`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  color: "var(--ct-brand)",
+                  textDecoration: "none",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {`${vaultAddress.slice(0, 6)}…${vaultAddress.slice(-4)}`}
+                <MI name="open_in_new" size={11} color="var(--ct-brand)" />
+              </a>
             </div>
           </div>
         </div>
@@ -131,8 +171,7 @@ function VaultCard({ name, symbol, chain, asset, createdAt, href }: VaultCardPro
         >
           View vault <MI name="arrow_forward" size={14} />
         </button>
-      </div>
-    </Link>
+    </div>
   );
 }
 
@@ -201,10 +240,10 @@ export default function DiscoverPage() {
       (vaults ?? []).map((v) => ({
         name: v.name,
         symbol: v.symbol,
-        chain: "Arbitrum Sepolia",
         asset: assetSymbol(v.asset),
         createdAt: v.createdAt,
         href: `/vault/${v.address}`,
+        vaultAddress: v.address,
       })),
     [vaults],
   );

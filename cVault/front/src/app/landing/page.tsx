@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { MI } from "@/components/ui";
+import { NetworkChip } from "@/components/Shell";
 
 /**
  * W1 — Full-bleed landing page. The hero stays visible regardless of wallet state; the CTA
@@ -72,30 +73,7 @@ export default function LandingPage() {
           </span>
         </div>
         <div style={{ flex: 1 }} />
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "6px 12px",
-            borderRadius: 9999,
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            font: "600 12px/16px var(--ct-font-ui)",
-            color: "var(--ct-fg-3)",
-          }}
-        >
-          <span
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: 9999,
-              background: "var(--ct-warn)",
-              boxShadow: "0 0 8px rgba(245,158,11,0.6)",
-            }}
-          />
-          Arbitrum Sepolia
-        </div>
+        <NetworkChip />
       </div>
 
       {/* Centre hero */}
@@ -187,7 +165,7 @@ export default function LandingPage() {
         <div style={{ marginTop: 40 }}>
           {isConnected ? (
             <Link
-              href="/portfolio"
+              href="/discover"
               style={{
                 height: 56,
                 padding: "0 32px",
@@ -246,7 +224,7 @@ export default function LandingPage() {
           }}
         >
           {isConnected
-            ? "Wallet connected — continue to your portfolio."
+            ? "Wallet connected — explore the available vaults."
             : "You will be asked to select and authorize your wallet."}
         </div>
       </div>
