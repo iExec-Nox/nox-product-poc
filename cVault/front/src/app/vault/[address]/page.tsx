@@ -119,13 +119,31 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
     });
   }, [shares, address, vaultAddress]);
 
-  const hasPendingDeposit = pendingDeposit && pendingDeposit !== ZERO_HANDLE;
-  const hasClaimableDeposit = claimableDeposit && claimableDeposit !== ZERO_HANDLE;
-  const hasPendingRedeem = pendingRedeem && pendingRedeem !== ZERO_HANDLE;
-  const hasClaimableRedeem = claimableRedeem && claimableRedeem !== ZERO_HANDLE;
+  // A finalized `claimable*` slot is reset via `Nox.toEuint256(0)`, producing a FRESH non-zero
+  // handle whose decrypted value is 0 (not bytes32(0)). Gating purely on `handle !== ZERO_HANDLE`
+  // leaves the card visible forever. We additionally inspect the decrypted state: once the user
+  // has revealed the handle and the value is 0n, we treat the slot as effectively empty.
+  const pendingDepositDecrypt = useDecryptedHandle(pendingDeposit as `0x${string}` | undefined);
+  const claimableDepositDecrypt = useDecryptedHandle(claimableDeposit as `0x${string}` | undefined);
+  const pendingRedeemDecrypt = useDecryptedHandle(pendingRedeem as `0x${string}` | undefined);
+  const claimableRedeemDecrypt = useDecryptedHandle(claimableRedeem as `0x${string}` | undefined);
+  const isRevealedZero = (s: ReturnType<typeof useDecryptedHandle>["state"]) =>
+    s.status === "ok" && s.value === 0n;
+
+  const hasPendingDeposit =
+    !!pendingDeposit && pendingDeposit !== ZERO_HANDLE && !isRevealedZero(pendingDepositDecrypt.state);
+  const hasClaimableDeposit =
+    !!claimableDeposit && claimableDeposit !== ZERO_HANDLE && !isRevealedZero(claimableDepositDecrypt.state);
+  const hasPendingRedeem =
+    !!pendingRedeem && pendingRedeem !== ZERO_HANDLE && !isRevealedZero(pendingRedeemDecrypt.state);
+  const hasClaimableRedeem =
+    !!claimableRedeem && claimableRedeem !== ZERO_HANDLE && !isRevealedZero(claimableRedeemDecrypt.state);
 
   const name = (vaultName as string | undefined) ?? "Confidential Vault";
   const symbol = (vaultSymbol as string | undefined) ?? "cvUSDC";
+  // Vault shares decimals = underlying decimals + `_decimalsOffset()` (6). Applies to every
+  // DecryptedAmount that renders a share-denominated handle on this page.
+  const shareDecimals = assetDecimals + DECIMALS_OFFSET;
 
   return (
     <Shell>
@@ -164,28 +182,30 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
         }}
       >
         <MetricTile label="TVL" publicTag sub={`${underlyingSymbol} under management`}>
-          {snapshot
+          {snapshot?.decrypted_total_assets
             ? `${Number(
                 formatUnits(BigInt(snapshot.decrypted_total_assets), assetDecimals),
               ).toLocaleString("en-US", { maximumFractionDigits: 4 })} ${underlyingSymbol}`
             : "—"}
         </MetricTile>
         <MetricTile label="NAV per share" publicTag sub={`${underlyingSymbol} per share`}>
-          {snapshot
+          {snapshot?.nav && Number.isFinite(Number(snapshot.nav))
             ? (Number(snapshot.nav) * 10 ** DECIMALS_OFFSET).toLocaleString("en-US", {
                 maximumFractionDigits: 6,
               })
             : "—"}
         </MetricTile>
         <MetricTile label="APY" publicTag sub="Annualized, settler-reported">
-          {snapshot ? `${(snapshot.apy * 100).toFixed(2)}%` : "—"}
+          {typeof snapshot?.apy === "number" && Number.isFinite(snapshot.apy)
+            ? `${(snapshot.apy * 100).toFixed(2)}%`
+            : "—"}
         </MetricTile>
       </div>
 
       {/* Shares metric (full width) */}
       <div style={{ marginBottom: 24 }}>
         <MetricTile label="My shares" me sub="On-chain balance">
-          <DecryptedAmount handle={shares as `0x${string}` | undefined} decimals={6} suffix={symbol} />
+          <DecryptedAmount handle={shares as `0x${string}` | undefined} decimals={shareDecimals} suffix={symbol} />
         </MetricTile>
       </div>
 
@@ -200,10 +220,22 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
               description="Awaiting vault operator settlement."
             >
               {hasPendingDeposit && (
-                <RequestCard status="pending" kind="deposit" handle={pendingDeposit as `0x${string}`} suffix="cUSDC" />
+                <RequestCard
+                  status="pending"
+                  kind="deposit"
+                  handle={pendingDeposit as `0x${string}`}
+                  suffix={token?.confidentialSymbol ?? "cUSDC"}
+                  decimals={assetDecimals}
+                />
               )}
               {hasPendingRedeem && (
-                <RequestCard status="pending" kind="redeem" handle={pendingRedeem as `0x${string}`} suffix={symbol} />
+                <RequestCard
+                  status="pending"
+                  kind="redeem"
+                  handle={pendingRedeem as `0x${string}`}
+                  suffix={symbol}
+                  decimals={shareDecimals}
+                />
               )}
             </RequestSection>
           )}
@@ -219,7 +251,8 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
                   status="ready"
                   kind="deposit"
                   handle={claimableDeposit as `0x${string}`}
-                  suffix="shares"
+                  suffix={symbol}
+                  decimals={shareDecimals}
                   onFinalize={() => setFinalizeDepositOpen(true)}
                 />
               )}
@@ -228,7 +261,8 @@ export default function VaultPositionPage({ params }: { params: Promise<{ addres
                   status="ready"
                   kind="redeem"
                   handle={claimableRedeem as `0x${string}`}
-                  suffix="cUSDC"
+                  suffix={token?.confidentialSymbol ?? "cUSDC"}
+                  decimals={assetDecimals}
                   onFinalize={() => setFinalizeRedeemOpen(true)}
                 />
               )}
@@ -330,12 +364,14 @@ function RequestCard({
   kind,
   handle,
   suffix,
+  decimals,
   onFinalize,
 }: {
   status: "pending" | "ready";
   kind: "deposit" | "redeem";
   handle: `0x${string}`;
   suffix: string;
+  decimals: number;
   onFinalize?: () => void;
 }) {
   const { state } = useDecryptedHandle(status === "ready" ? handle : undefined);
@@ -448,7 +484,7 @@ function RequestCard({
           fontVariantNumeric: "tabular-nums",
         }}
       >
-        <DecryptedAmount handle={handle} decimals={6} suffix={suffix} />
+        <DecryptedAmount handle={handle} decimals={decimals} suffix={suffix} />
       </div>
 
       {/* Footer: action (if ready + >0) or hint */}

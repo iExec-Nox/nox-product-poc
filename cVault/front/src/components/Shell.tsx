@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ReactNode } from "react";
-import { useAccount, useChainId } from "wagmi";
+import { useAccount } from "wagmi";
 import { MI } from "./ui";
 import { CHAIN_ID } from "@/config/contracts";
 
@@ -46,9 +46,12 @@ export function TestnetBanner() {
 }
 
 function NetworkChip() {
-  const { isConnected } = useAccount();
-  const connectedChainId = useChainId();
-  const onExpectedChain = isConnected && connectedChainId === CHAIN_ID;
+  // Read the chain directly from the connected account. `useChainId()` from wagmi reads the
+  // store's "current chain" which can be stale during hydration and reports the first chain
+  // from the config before the connector actually reports one — leading to a green dot on an
+  // unconnected wallet and an orange dot on a freshly-connected one.
+  const { isConnected, chainId: accountChainId } = useAccount();
+  const onExpectedChain = isConnected && accountChainId === CHAIN_ID;
   const dotColor = !isConnected
     ? "var(--ct-fg-5)"
     : onExpectedChain
@@ -59,8 +62,14 @@ function NetworkChip() {
     : onExpectedChain
       ? "0 0 8px rgba(16,185,129,0.6)"
       : "0 0 8px rgba(245,158,11,0.6)";
+  const title = !isConnected
+    ? "Wallet disconnected"
+    : onExpectedChain
+      ? `Connected to Arbitrum Sepolia (${CHAIN_ID})`
+      : `Wrong network: wallet is on chain ${accountChainId ?? "?"}, expected ${CHAIN_ID}`;
   return (
     <div
+      title={title}
       style={{
         display: "inline-flex",
         alignItems: "center",

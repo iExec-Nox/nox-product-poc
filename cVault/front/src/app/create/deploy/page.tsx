@@ -539,28 +539,6 @@ export default function DeployPage() {
                 <PrimaryButton icon="arrow_forward">Open your vault</PrimaryButton>
               </Link>
             ) : null}
-            {txHash ? (
-              <a
-                href={`https://sepolia.arbiscan.io/tx/${txHash}`}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  display: "inline-flex",
-                  gap: 6,
-                  alignItems: "center",
-                  height: 46,
-                  padding: "0 18px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(255,255,255,0.10)",
-                  color: "var(--ct-brand)",
-                  font: "700 13px/20px var(--ct-font-display)",
-                  textDecoration: "none",
-                  background: "rgba(255,255,255,0.03)",
-                }}
-              >
-                <MI name="open_in_new" size={14} /> View on Arbiscan
-              </a>
-            ) : null}
           </div>
         </>
       )}
