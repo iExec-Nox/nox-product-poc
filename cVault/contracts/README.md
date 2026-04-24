@@ -190,6 +190,52 @@ What it does:
    shares)` → status **claimed**
 3. Read the final state: user share balance handle, vault totalSupply / totalAssets handles
 
+## End-to-end tests (Arbitrum Sepolia)
+
+The e2e suite in `test/e2e/ConfidentialERC7540.e2e.ts` runs the full async lifecycle against
+**live Arbitrum Sepolia** (chainId 421614), not a local fork. Each run:
+
+1. Deploys a fresh vault through the factory with a randomized CREATE2 salt (state is
+   isolated per run, so prior deposits / shares don't leak across invocations).
+2. Wraps USDC to cUSDC, then walks the deposit lifecycle: `requestDeposit`,
+   `approveDeposit`, `deposit(receiver, controller)`.
+3. Walks the redeem lifecycle: `requestRedeem`, `approveRedeem`,
+   `redeem(receiver, controller)`.
+4. Decrypts every relevant handle (pending / claimable buckets, `totalSupply`,
+   `totalAssets`, user `confidentialBalanceOf`) via the `@iexec-nox/handle` SDK and asserts
+   invariants at each step: 1:1 ratio on the seed mint, pending drained on approve,
+   `totalSupply` decreases by the burned shares on `approveRedeem`, cUSDC returned 1:1 to
+   the signer after the redeem claim.
+
+### Prerequisites
+
+- Hardhat keystore: `ARBITRUM_SEPOLIA_RPC_URL` (same var used by the deploy / script tasks).
+- `.env` vars:
+  - `VAULT_OWNER_PRIVATE_KEY`: single signer that plays every role (user, vault owner,
+    receiver). It **must** own the freshly-deployed vault so `approveDeposit` /
+    `approveRedeem` succeed, and **must** hold at least `DEPOSIT_AMOUNT_USDC` atomic USDC
+    (currently 10_000, i.e. 0.01 USDC).
+  - `CUSDC_ADDRESS`: the deployed `ERC20ToERC7984Wrapper` (cUSDC).
+  - `FACTORY_ADDRESS`: the deployed `ConfidentialERC7540Factory`.
+
+### Run
+
+```bash
+npm run test:e2e:arbitrumSepolia
+```
+
+Under the hood: `dotenv -e .env -- hardhat test nodejs test/e2e/ConfidentialERC7540.e2e.ts`.
+
+Unit / fork tests live in `test/unit/` and are run via `npm run test:unit` (or the default `npm test`).
+
+### Gas cost caveat
+
+One full run sends ~8 live transactions (wrap approve, wrap, setOperator, `Nox.allow`,
+requestDeposit, approveDeposit, deposit claim, plus the full redeem leg) and consumes real
+Arbitrum Sepolia gas plus real testnet USDC. That's why `DEPOSIT_AMOUNT_USDC` is kept tiny
+(0.01 USDC): the suite asserts invariants on amounts, not on economic size, so there is no
+reason to move more. Top up the signer from a faucet before running if needed.
+
 ## PoC simplifications (tagged `TODO(prod)` in code)
 
 - **No slippage / `maxDeposit` / `maxRedeem` caps.** Enforced reverts on encrypted comparisons

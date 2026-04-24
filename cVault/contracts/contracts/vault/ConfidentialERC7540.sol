@@ -16,36 +16,44 @@ import {IConfidentialERC7540} from "../interfaces/IConfidentialERC7540.sol";
 /**
  * @dev Confidential adaptation of EIP-7540 (asynchronous tokenized vault).
  *
- * Lifecycle (iso EIP-7540):
- *   1. {requestDeposit}: assets are pulled into the vault, `pendingDepositAssets` grows.
- *   2. {approveDeposit}: moves the approved amount from `pendingDepositAssets` to
- *      `claimableDepositAssets`. No conversion, no mint.
- *   3. `deposit(receiver, controller)` (async claim): converts `claimableDepositAssets` →
- *      shares at the live NAV and mints the shares to `receiver`.
+ * Follows OZ's ERC-7540 draft reference design: the NAV conversion happens at fulfillment
+ * (`approveDeposit` / `approveRedeem`), not at claim. This makes the share count deterministic
+ * from the admin's perspective as soon as the request is approved, and turns the user-side
+ * claim into a pure transfer (no FHE convert/mint at claim time).
  *
- * Redeem lifecycle is symmetric, tracked in shares instead of assets:
- *   1. {requestRedeem}: shares are escrowed into the vault, `pendingRedeemShares` grows.
- *   2. {approveRedeem}: moves shares from `pendingRedeemShares` to `claimableRedeemShares`.
- *   3. `redeem(receiver, controller)` (async claim): converts `claimableRedeemShares` → assets
- *      at the live NAV, burns the escrowed shares and transfers the assets to `receiver`.
+ * Deposit lifecycle:
+ *   1. {requestDeposit}: assets pulled into vault; `_pendingDepositAssets[c]` += amount;
+ *      `_totalPendingDepositAssets` += amount.
+ *   2. {approveDeposit}: admin settles an amount of the controller's pending. Shares are
+ *      computed at the current productive NAV, minted to the vault (escrow), and the
+ *      `(assets, shares)` pair is stored on the controller's claimable bucket. Pending counter
+ *      is decremented.
+ *   3. `deposit(receiver, controller)`: simple transfer of the escrowed shares from vault to
+ *      receiver. Resets the claimable bucket.
  *
- * NOTE on NAV timing: the conversion rate is the NAV *at claim time*, not at approve time. The
- * owner's approval is a gating permission ("yes, you may claim"), not a price-lock. A production
- * vault that wants strict fair-pricing should snapshot the NAV at approval and store it
- * per-request.
+ * Redeem lifecycle (symmetric):
+ *   1. {requestRedeem}: shares escrowed into vault (transfer owner_ → address(this));
+ *      `_pendingRedeemShares[c]` += amount.
+ *   2. {approveRedeem}: admin settles an amount of the controller's pending. Assets are
+ *      computed at the current productive NAV, the escrowed shares are burned, and the
+ *      `(shares, assets)` pair is stored on the controller's claimable bucket.
+ *   3. `redeem(receiver, controller)`: simple `_transferOut` of the reserved assets to
+ *      receiver. Resets the claimable bucket.
  *
- * The vault owner is the only account that can observe aggregated pending / claimable amounts
- * (because encrypted handle ACL is granted to the vault itself and to `owner()`). Individual
- * users cannot observe each other.
+ * Productive NAV = `confidentialTotalAssets() - _totalPendingDepositAssets`. Excluding the
+ * pending pool ensures concurrent deposit requests don't dilute one another and saves the
+ * first-deposit edge case from the `assets / (assets + 1) = 0` degeneracy.
+ *
+ * The vault owner is the only account that can observe aggregated totals (encrypted handle ACL
+ * is granted to the vault and `owner()`). Individual users see only their own buckets.
  *
  * TODO(prod):
  *  - Multi-request support. Currently each controller has a single "bucket" per flow; submitting
  *    a second request before approval simply accumulates in the same bucket. EIP-7540 allows
  *    multiple concurrent requests via `requestId`.
- *  - Partial claim. Users can only claim the full claimable balance; EIP-7540 allows partial.
+ *  - Partial claim. Users can only claim the full claimable balance; EIP-7540 allows partial
+ *    via floor/ceil-rounded mulDiv on the stored `(assets, shares)` pair.
  *  - Cancel / reject flow (refunds of pending assets/shares if the owner declines the request).
- *  - NAV snapshotting. The NAV used for approval is the live NAV; a production vault would
- *    snapshot it at request time or use a price oracle.
  */
 contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownable {
     // ============ Storage ============
@@ -58,18 +66,26 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
      */
     mapping(address controller => euint256) private _pendingDepositAssets;
     mapping(address controller => euint256) private _claimableDepositAssets;
+    /// @dev Shares pre-minted to the vault at `approveDeposit` time, paired with the matching
+    ///      `_claimableDepositAssets[controller]` so the claim is a deterministic transfer.
+    mapping(address controller => euint256) private _claimableDepositShares;
+
     mapping(address controller => euint256) private _pendingRedeemShares;
     mapping(address controller => euint256) private _claimableRedeemShares;
+    /// @dev Assets reserved for the controller at `approveRedeem` time, paired with the matching
+    ///      `_claimableRedeemShares[controller]`. The assets stay in the vault balance until
+    ///      claimed via `redeem(receiver, controller)`.
+    mapping(address controller => euint256) private _claimableRedeemAssets;
 
     /**
-     * @dev Running sum of assets sitting in the vault but not yet converted to shares —
-     * `pending + claimable` across every controller. Subtracted from `confidentialTotalAssets()`
-     * at claim time to recover the productive NAV denominator under concurrent requests.
+     * @dev Running sum of deposit assets in Pending state across every controller. Once an
+     * admin `approveDeposit`s an amount, the share side is minted against it and the counter
+     * is decremented — the corresponding assets become productive from that point.
      *
-     * Invariant: `asset.confidentialBalanceOf(vault) - _totalInflightDepositAssets` equals the
-     * productive capital (shares have been minted against it).
+     * Invariant: `asset.confidentialBalanceOf(vault) - _totalPendingDepositAssets` equals the
+     * productive capital (i.e. assets with shares minted against them).
      */
-    euint256 private _totalInflightDepositAssets;
+    euint256 private _totalPendingDepositAssets;
 
     // ============ Errors ============
 
@@ -86,7 +102,7 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
     ) ConfidentialERC4626(asset_, name_, symbol_, contractURI_) Ownable(initialOwner_) {
         // Seed the inflight counter so the first `requestDeposit` can add to a known handle.
         euint256 zero = Nox.toEuint256(0);
-        _totalInflightDepositAssets = zero;
+        _totalPendingDepositAssets = zero;
         Nox.allowThis(zero);
         Nox.allow(zero, initialOwner_);
     }
@@ -200,8 +216,8 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
 
         // Mirror the transfer in the global inflight counter: these assets are in the vault but
         // no shares are minted against them yet, so they must not inflate the productive NAV.
-        euint256 newInflight = Nox.add(_totalInflightDepositAssets, transferred);
-        _totalInflightDepositAssets = newInflight;
+        euint256 newInflight = Nox.add(_totalPendingDepositAssets, transferred);
+        _totalPendingDepositAssets = newInflight;
         Nox.allowThis(newInflight);
         Nox.allow(newInflight, owner());
 
@@ -237,15 +253,16 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
     // ============ Approve Phase (onlyOwner) ============
 
     /**
-     * @dev Moves `assets` from `owner_`'s pending deposit bucket to their claimable deposit
-     * bucket. No conversion, no mint — shares are only created at claim time (async `deposit`).
+     * @dev Settles `assets` of `owner_`'s pending deposit bucket. OZ's `_fulfillDeposit`
+     * pattern: convert the approved amount to shares at the current productive NAV, mint those
+     * shares to the vault itself (escrow), and store the `(assets, shares)` pair on the
+     * claimable bucket.
      *
-     * Uses {Nox.safeSub} so that an approval larger than the current pending bucket is a no-op
-     * (pending stays unchanged, 0 is credited to claimable) instead of underflowing the bucket.
-     * {Nox.select} threads the success flag through the state updates. The vault always has ACL
-     * on `_pendingDepositAssets[owner_]` via `Nox.allowThis` done in `_requestDeposit`; the
-     * admin is trusted (via `onlyOwner`) to pass a legitimate handle, typically read fresh from
-     * `pendingDepositRequest(owner_)`.
+     * Uses {Nox.safeSub} so an approval bigger than the current pending is a no-op (pending
+     * untouched, 0 credited). {Nox.select} threads the success flag through every state
+     * update. The productive NAV is evaluated BEFORE the pending counter decrement, so for
+     * the first deposit (or any scenario where the controller's pending dominates) the
+     * productive totalAssets is zero and shares are minted at the seed ratio.
      */
     /// @inheritdoc IConfidentialERC7540
     function approveDeposit(euint256 assets, address owner_) external override onlyOwner {
@@ -257,27 +274,55 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
             assets
         );
         newPending = Nox.select(success, newPending, _pendingDepositAssets[owner_]);
+        euint256 approved = Nox.select(success, assets, Nox.toEuint256(0));
+
+        // Snapshot productive NAV BEFORE decrementing _totalPendingDepositAssets. At this
+        // moment `_totalPendingDepositAssets` still contains the full pending of this
+        // controller — correct, we must exclude it from the productive denominator.
+        (euint256 assetsBefore, euint256 supplyBefore) = _snapshot();
+        euint256 productiveAssets = Nox.sub(assetsBefore, _totalPendingDepositAssets);
+        Nox.allowThis(productiveAssets);
+        euint256 shares = _convertToShares(approved, productiveAssets, supplyBefore);
+
+        // Mint the escrow shares to the vault. These shares increase totalSupply and sit on
+        // `address(this)`'s balance until the controller claims via `deposit(receiver, c)`.
+        _mint(address(this), shares);
+
+        // Persist the updated pending bucket + global counter.
         _pendingDepositAssets[owner_] = newPending;
         Nox.allowThis(newPending);
         Nox.allow(newPending, owner());
         Nox.allow(newPending, owner_);
 
-        // Only credit the claimable bucket with what actually came out of pending.
-        euint256 approved = Nox.select(success, assets, Nox.toEuint256(0));
-        euint256 newClaimable = Nox.add(_claimableDepositAssets[owner_], approved);
-        _claimableDepositAssets[owner_] = newClaimable;
-        Nox.allowThis(newClaimable);
-        Nox.allow(newClaimable, owner());
-        Nox.allow(newClaimable, owner_);
+        euint256 newTotalPending = Nox.sub(_totalPendingDepositAssets, approved);
+        _totalPendingDepositAssets = newTotalPending;
+        Nox.allowThis(newTotalPending);
+        Nox.allow(newTotalPending, owner());
+
+        // Credit the claimable (assets, shares) pair.
+        euint256 newClaimableAssets = Nox.add(_claimableDepositAssets[owner_], approved);
+        _claimableDepositAssets[owner_] = newClaimableAssets;
+        Nox.allowThis(newClaimableAssets);
+        Nox.allow(newClaimableAssets, owner());
+        Nox.allow(newClaimableAssets, owner_);
+
+        euint256 newClaimableShares = Nox.add(_claimableDepositShares[owner_], shares);
+        _claimableDepositShares[owner_] = newClaimableShares;
+        Nox.allowThis(newClaimableShares);
+        Nox.allow(newClaimableShares, owner());
+        Nox.allow(newClaimableShares, owner_);
 
         emit DepositApproved(owner_, approved);
     }
 
     /**
-     * @dev Moves `shares` from `owner_`'s pending redeem bucket to their claimable redeem
-     * bucket. Shares stay escrowed in the vault (from the earlier {requestRedeem}); they are
-     * burned at claim time (async `redeem`). Same {Nox.safeSub} + {Nox.select} pattern as
-     * {approveDeposit}.
+     * @dev Settles `shares` of `owner_`'s pending redeem bucket. OZ's `_fulfillRedeem` pattern:
+     * convert the approved amount to assets at the current productive NAV, burn the escrowed
+     * shares, and store the `(shares, assets)` pair on the claimable bucket. The reserved
+     * assets stay in the vault's balance until claimed via `redeem(receiver, controller)`.
+     *
+     * Burning at fulfill (not claim) keeps `totalSupply` in sync with on-chain reality from the
+     * admin's settlement point onward — same as OZ.
      */
     /// @inheritdoc IConfidentialERC7540
     function approveRedeem(euint256 shares, address owner_) external override onlyOwner {
@@ -289,17 +334,37 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
             shares
         );
         newPending = Nox.select(success, newPending, _pendingRedeemShares[owner_]);
+        euint256 approved = Nox.select(success, shares, Nox.toEuint256(0));
+
+        // Snapshot productive NAV (excluding pending deposits — see `approveDeposit` for the
+        // rationale; redeem-side has no pending-assets bucket of its own).
+        (euint256 assetsBefore, euint256 supplyBefore) = _snapshot();
+        euint256 productiveAssets = Nox.sub(assetsBefore, _totalPendingDepositAssets);
+        Nox.allowThis(productiveAssets);
+        euint256 assetsOut = _convertToAssets(approved, productiveAssets, supplyBefore);
+        Nox.allowThis(assetsOut);
+
+        // Burn the escrowed shares now (iso OZ `_fulfillRedeem`).
+        _burn(address(this), approved);
+
+        // Persist pending bucket.
         _pendingRedeemShares[owner_] = newPending;
         Nox.allowThis(newPending);
         Nox.allow(newPending, owner());
         Nox.allow(newPending, owner_);
 
-        euint256 approved = Nox.select(success, shares, Nox.toEuint256(0));
-        euint256 newClaimable = Nox.add(_claimableRedeemShares[owner_], approved);
-        _claimableRedeemShares[owner_] = newClaimable;
-        Nox.allowThis(newClaimable);
-        Nox.allow(newClaimable, owner());
-        Nox.allow(newClaimable, owner_);
+        // Credit the claimable (shares, assets) pair.
+        euint256 newClaimableShares = Nox.add(_claimableRedeemShares[owner_], approved);
+        _claimableRedeemShares[owner_] = newClaimableShares;
+        Nox.allowThis(newClaimableShares);
+        Nox.allow(newClaimableShares, owner());
+        Nox.allow(newClaimableShares, owner_);
+
+        euint256 newClaimableAssets = Nox.add(_claimableRedeemAssets[owner_], assetsOut);
+        _claimableRedeemAssets[owner_] = newClaimableAssets;
+        Nox.allowThis(newClaimableAssets);
+        Nox.allow(newClaimableAssets, owner());
+        Nox.allow(newClaimableAssets, owner_);
 
         emit RedeemApproved(owner_, approved);
     }
@@ -308,14 +373,9 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
 
     /**
      * @inheritdoc IConfidentialERC7540
-     * @dev Converts the full `claimableDepositAssets[controller]` bucket to shares at the live
-     * NAV and mints them to `receiver`. Resets the claimable bucket and the global inflight
-     * counter so future claimants see the correct productive NAV.
-     *
-     * Productive NAV = `confidentialTotalAssets() - _totalInflightDepositAssets`. At this point
-     * the global inflight still includes THIS controller's claimable, so the subtraction
-     * correctly excludes every user's pending/claimable bucket — including the caller's. The
-     * counter is decremented only after `_mint`, to keep the invariant true throughout.
+     * @dev Claims the escrowed shares from the vault to `receiver`. Shares were minted to the
+     * vault at `approveDeposit` time; this call is a pure confidential transfer with no NAV
+     * calculation. Resets both sides of the claimable bucket.
      */
     function deposit(
         address receiver,
@@ -327,31 +387,23 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
             ERC7984UnauthorizedSpender(controller, msg.sender)
         );
 
-        euint256 assets = _claimableDepositAssets[controller];
+        shares = _claimableDepositShares[controller];
         euint256 zero = Nox.toEuint256(0);
         _claimableDepositAssets[controller] = zero;
+        _claimableDepositShares[controller] = zero;
         Nox.allowThis(zero);
 
-        (euint256 assetsBefore, euint256 supplyBefore) = _snapshot();
-        euint256 productiveAssets = Nox.sub(assetsBefore, _totalInflightDepositAssets);
-        Nox.allowThis(productiveAssets);
-        shares = _convertToShares(assets, productiveAssets, supplyBefore);
-
-        _mint(receiver, shares);
-
-        // These assets are productive now; remove them from the global inflight pool.
-        euint256 newInflight = Nox.sub(_totalInflightDepositAssets, assets);
-        _totalInflightDepositAssets = newInflight;
-        Nox.allowThis(newInflight);
-        Nox.allow(newInflight, owner());
+        Nox.allowThis(shares);
+        _transfer(address(this), receiver, shares);
 
         emit DepositClaimed(controller, receiver, shares);
     }
 
     /**
      * @inheritdoc IConfidentialERC7540
-     * @dev Converts the full `claimableRedeemShares[controller]` bucket to assets at the live
-     * NAV, burns the escrowed shares held by the vault, and transfers the assets to `receiver`.
+     * @dev Claims the reserved assets from the vault to `receiver`. Assets were earmarked and
+     * the escrowed shares were burned at `approveRedeem` time; this call is a pure
+     * `_transferOut` with no NAV calculation. Resets both sides of the claimable bucket.
      */
     function redeem(
         address receiver,
@@ -363,17 +415,13 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
             ERC7984UnauthorizedSpender(controller, msg.sender)
         );
 
-        euint256 shares = _claimableRedeemShares[controller];
+        assets = _claimableRedeemAssets[controller];
         euint256 zero = Nox.toEuint256(0);
         _claimableRedeemShares[controller] = zero;
+        _claimableRedeemAssets[controller] = zero;
         Nox.allowThis(zero);
 
-        (euint256 assetsBefore, euint256 supplyBefore) = _snapshot();
-        assets = _convertToAssets(shares, assetsBefore, supplyBefore);
-
-        // Burn the escrowed shares held by the vault (moved there at `requestRedeem`).
-        _burn(address(this), shares);
-
+        Nox.allowThis(assets);
         euint256 sent = _transferOut(receiver, assets);
         emit RedeemClaimed(controller, receiver, sent);
     }
@@ -409,7 +457,7 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
      * {pendingDepositRequest} / {claimableDepositRequest} instead.
      */
     function totalPendingDepositAssets() external view returns (euint256) {
-        return _totalInflightDepositAssets;
+        return _totalPendingDepositAssets;
     }
 
     // ============ Admin viewership (totalSupply / totalAssets) ============
@@ -452,5 +500,13 @@ contract ConfidentialERC7540 is ConfidentialERC4626, IConfidentialERC7540, Ownab
     {
         sent = super._transferOut(to, amount);
         Nox.allow(confidentialTotalAssets(), owner());
+    }
+
+    /// @dev Virtual-share offset for inflation-attack defense in depth. OZ's default is 0
+    ///      (already non-profitable per their analysis); we push it to 6 to make the attack
+    ///      orders of magnitude more expensive than any realistic gain. Share decimals become
+    ///      `assetDecimals + 6`, which the front reads via `vault.decimals()`.
+    function _decimalsOffset() internal view virtual override returns (uint8) {
+        return 6;
     }
 }

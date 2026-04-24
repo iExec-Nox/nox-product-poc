@@ -6,7 +6,8 @@
     "clean": "hardhat clean",
     "build": "hardhat compile",
     "compile": "hardhat compile",
-    "test": "hardhat test",
+    "test": "hardhat test nodejs test/unit",
+    "test:unit": "hardhat test nodejs test/unit",
     "deploy:factory": "hardhat ignition deploy ignition/modules/ConfidentialVaultFactory.ts --build-profile production",
     "deploy:factory:arbitrumSepolia": "dotenv -e .env -- hardhat ignition deploy --network arbitrumSepolia --deployment-id arbitrumSepolia ignition/modules/ConfidentialVaultFactory.ts --build-profile production --verify",
     "deploy:vault:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/deployVault.ts",
@@ -15,10 +16,12 @@
     "vault:requestRedeem:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/requestRedeem.ts",
     "vault:claimRedeem:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/claimRedeem.ts",
     "vault:lifecycle:arbitrumSepolia": "dotenv -e .env -- hardhat run --network arbitrumSepolia scripts/vaultLifecycle.ts",
+    "test:e2e:arbitrumSepolia": "dotenv -e .env -- hardhat test nodejs test/e2e/ConfidentialERC7540.e2e.ts",
     "verify:factory": "hardhat ignition verify arbitrumSepolia --network arbitrumSepolia",
     "verify:vault": "dotenv -e .env -- hardhat verify --network arbitrumSepolia"
   },
   "devDependencies": {
+    "@iexec-nox/handle": "^0.1.0-beta.10",
     "@nomicfoundation/hardhat-ignition": "^3.1.2",
     "@nomicfoundation/hardhat-toolbox-viem": "^5.0.4",
     "@types/node": "^22.19.17",
