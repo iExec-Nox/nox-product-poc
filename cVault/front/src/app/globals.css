@@ -1,26 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Anybody:wght@400;500;600;700;800;900&family=Mulish:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Material+Icons&display=swap');
 @import "tailwindcss";
+@import "../ds/colors_and_type.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+html,
+body {
+  min-height: 100%;
+  background: var(--ct-bg);
+  color: var(--ct-fg-2);
+  font-family: var(--ct-font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+button {
+  font-family: inherit;
+}
+
+@keyframes ct-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes ct-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.ct-pulse {
+  animation: ct-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ct-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ct-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.ct-tip:hover .ct-tip-body {
+  opacity: 1 !important;
+}
+
+
+/* Align RainbowKit modal accent with our brand. */
+[data-rk] {
+  --rk-colors-accentColor: var(--ct-brand);
 }

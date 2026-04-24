@@ -1,0 +1,162 @@
+/* ==========================================================================
+   Confidential Token (Nox Protocol) — Base tokens
+   Dark dApp UI. Indigo brand on slate/charcoal. Glassmorphism + Mulish/Inter.
+   ========================================================================== */
+
+:root {
+  /* ---- Brand / Primary ---- */
+  --ct-brand:            #748EFF;      /* primary indigo */
+  --ct-brand-ink:        #4725F4;      /* deep indigo — shadows, active */
+  --ct-brand-soft:       rgba(116,142,255,0.22);  /* glow */
+  --ct-brand-tint-12:    rgba(116,142,255,0.12);
+  --ct-brand-tint-18:    rgba(116,142,255,0.18);
+  --ct-brand-tint-27:    rgba(116,142,255,0.27);
+  --ct-brand-tint-31:    rgba(116,142,255,0.31);
+  --ct-brand-border:     rgba(71,37,244,0.20);
+
+  --ct-violet:           #8A38F5;      /* dashed frame / accent stroke */
+  --ct-indigo-600:       #6366F1;
+  --ct-indigo-400:       #818CF8;
+  --ct-indigo-200:       #A3ACFF;
+  --ct-periwinkle:       #D3CAFF;
+
+  /* ---- Surfaces (dark) ---- */
+  --ct-bg:               #1D1D24;      /* app/page bg */
+  --ct-surface-1:        #24242B;      /* solid card */
+  --ct-surface-2:        #3F3F46;      /* divider / chip */
+  --ct-glass:            rgba(255,255,255,0.03);
+  --ct-glass-soft:       rgba(255,255,255,0.02);
+  --ct-glass-strong:     rgba(255,255,255,0.05);
+  --ct-glass-border:     rgba(255,255,255,0.08);
+  --ct-glass-border-soft: rgba(255,255,255,0.05);
+  --ct-glass-border-strong: rgba(255,255,255,0.10);
+
+  /* ---- Text / slate ramp ---- */
+  --ct-fg-1:             #FFFFFF;
+  --ct-fg-2:             #F1F5F9;
+  --ct-fg-3:             #CBD5E1;
+  --ct-fg-4:             #94A3B8;      /* meta / secondary */
+  --ct-fg-5:             #64748B;      /* tertiary / captions */
+  --ct-fg-6:             #475569;      /* subtle / footer */
+  --ct-fg-7:             #334155;
+
+  /* ---- Semantic ---- */
+  --ct-success:          #10B981;
+  --ct-success-light:    #34D399;
+  --ct-public:           #60A5FA;      /* public / "visible" */
+  --ct-warn:             #F59E0B;
+
+  /* ---- Shadows ---- */
+  --ct-shadow-glow:      0 2px 4px rgba(71,37,244,0.40);
+  --ct-shadow-glow-soft: 0 2px 4px rgba(116,142,255,0.22);
+  --ct-shadow-card:      0 1px 2px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+
+  /* ---- Radii ---- */
+  --ct-radius-xs:   6px;
+  --ct-radius-sm:   8px;
+  --ct-radius-md:   12px;
+  --ct-radius-lg:   16px;
+  --ct-radius-xl:   24px;
+  --ct-radius-2xl:  32px;
+  --ct-radius-3xl:  40px;
+  --ct-radius-pill: 9999px;
+
+  /* ---- Spacing scale (4px base) ---- */
+  --ct-space-1:  4px;
+  --ct-space-2:  8px;
+  --ct-space-3:  12px;
+  --ct-space-4:  16px;
+  --ct-space-5:  20px;
+  --ct-space-6:  24px;
+  --ct-space-8:  32px;
+  --ct-space-10: 40px;
+
+  /* ---- Blur ---- */
+  --ct-blur-12:  blur(12px);
+  --ct-blur-16:  blur(16px);
+  --ct-blur-24:  blur(24px);
+
+  /* ---- Font families ----
+     Anybody  → titles, display, headings (700/800/900)
+     Mulish   → body text, descriptions, inputs, meta
+     Inter    → numerics / tabular metrics (optional)
+     Material Icons → iconography
+  */
+  --ct-font-display: 'Anybody', system-ui, sans-serif;
+  --ct-font-ui:      'Mulish', system-ui, sans-serif;
+  --ct-font-icon:    'Material Icons';
+  --ct-font-body:    'Mulish', system-ui, sans-serif;
+  --ct-font-mono:    'Inter', system-ui, sans-serif;
+}
+
+/* =========================================================================
+   Base + semantic type roles
+   Display -> Mulish 700 (big headlines, modal titles)
+   UI numerics / nav -> Inter 700/500
+   Body -> Mulish 400/500
+   ========================================================================= */
+html, body {
+  background: var(--ct-bg);
+  color: var(--ct-fg-2);
+  font-family: var(--ct-font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ct-display-xl { font: 700 36px/40px var(--ct-font-display); letter-spacing: -0.9px; color: var(--ct-fg-1); }
+.ct-display-lg { font: 700 34px/40px var(--ct-font-display); color: var(--ct-fg-1); }
+.ct-display-md { font: 700 32px/40px var(--ct-font-display); letter-spacing: -0.9px; color: var(--ct-fg-1); }
+.ct-display-sm { font: 700 24px/32px var(--ct-font-display); color: var(--ct-fg-1); }
+
+.ct-title-lg { font: 700 20px/28px var(--ct-font-ui); letter-spacing: -0.5px; color: var(--ct-fg-2); }
+.ct-title-md { font: 700 18px/28px var(--ct-font-display); color: var(--ct-fg-1); }
+.ct-title-sm { font: 700 16px/24px var(--ct-font-display); color: var(--ct-fg-2); }
+
+.ct-body-lg   { font: 400 16px/26px var(--ct-font-body); color: var(--ct-fg-4); }
+.ct-body      { font: 400 14px/22px var(--ct-font-body); color: var(--ct-fg-4); }
+.ct-body-sm   { font: 400 12px/16px var(--ct-font-body); color: var(--ct-fg-5); }
+
+.ct-label     { font: 700 14px/20px var(--ct-font-display); color: var(--ct-fg-1); }
+.ct-label-ui  { font: 500 14px/20px var(--ct-font-ui);      color: var(--ct-fg-4); }
+.ct-nav       { font: 500 14px/20px var(--ct-font-ui);      color: var(--ct-fg-4); }
+.ct-nav-active{ font: 500 14px/20px var(--ct-font-ui);      color: var(--ct-fg-1); }
+
+.ct-eyebrow   { /* all-caps tracked label */
+  font: 700 12px/16px var(--ct-font-ui);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--ct-fg-5);
+}
+.ct-eyebrow-lg {
+  font: 700 14px/20px var(--ct-font-display);
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--ct-fg-4);
+}
+
+.ct-metric-xl { font: 700 30px/36px var(--ct-font-ui); color: var(--ct-fg-1); }
+.ct-metric-md { font: 700 20px/28px var(--ct-font-ui); color: var(--ct-fg-1); }
+.ct-delta-up  { font: 700 14px/20px var(--ct-font-ui); color: var(--ct-success-light); }
+.ct-delta-dn  { font: 700 14px/20px var(--ct-font-ui); color: #F87171; }
+
+.ct-mono      { font: 700 14px/20px var(--ct-font-display); color: var(--ct-fg-1); font-variant-numeric: tabular-nums; }
+.ct-code      { font: 400 12px/20px ui-monospace, 'JetBrains Mono', 'Menlo', monospace; color: var(--ct-indigo-200); }
+
+.ct-footer-copy { font: 500 12px/16px var(--ct-font-ui); color: var(--ct-fg-6); }
+
+/* Material Icons helper */
+.mi {
+  font-family: 'Material Icons';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
