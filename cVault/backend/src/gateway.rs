@@ -82,7 +82,6 @@ impl GatewayClient {
     /// The settler's private key is used to sign the `DataAccessAuthorization`
     /// EIP-712 token, so the on-chain ACL must grant view access to the settler address.
     pub async fn decrypt(&self, handle: &str) -> Result<Vec<u8>> {
-
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .context("system time")?
@@ -103,10 +102,7 @@ impl GatewayClient {
         };
 
         let hash = auth_struct.eip712_signing_hash(&domain);
-        let sig = self
-            .signer
-            .sign_hash_sync(&hash)
-            .context("EIP-712 sign")?;
+        let sig = self.signer.sign_hash_sync(&hash).context("EIP-712 sign")?;
 
         let token = STANDARD.encode(
             serde_json::json!({
@@ -121,7 +117,7 @@ impl GatewayClient {
             .to_string(),
         );
 
-        let url = format!("{}/v0/secrets/{handle}", self.base_url);
+        let url = format!("{}/v0/secrets/{handle}?chain_id={}", self.base_url, self.chain_id);
         debug!(handle, "calling gateway decrypt");
 
         let resp = self
@@ -141,8 +137,8 @@ impl GatewayClient {
         let data: SecretsResponse = resp.json().await.context("parse gateway response")?;
 
         // RSA-OAEP decrypt the shared secret.
-        let enc_shared_secret =
-            decode_hex(&data.payload.encrypted_shared_secret).context("decode encryptedSharedSecret")?;
+        let enc_shared_secret = decode_hex(&data.payload.encrypted_shared_secret)
+            .context("decode encryptedSharedSecret")?;
         let shared_secret = self
             .rsa_priv
             .decrypt(Oaep::new::<Sha256>(), &enc_shared_secret)

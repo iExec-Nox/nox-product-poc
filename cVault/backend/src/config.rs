@@ -142,7 +142,7 @@ impl Config {
             .set_default("indexer.chunk_size", 100)?
             .set_default("indexer.backoff_initial_secs", 1)?
             .set_default("indexer.backoff_max_secs", 60)?
-            .set_default("indexer.request_delay_secs", 30)?
+            .set_default("indexer.request_delay_secs", 20)?
             // Processor
             .set_default("processor.poll_interval_secs", 10)?
             .set_default("processor.max_attempts", 3)?
@@ -150,7 +150,7 @@ impl Config {
             .set_default("processor.backoff_base_secs", 5)?
             // Gateway (decryption optional — set SETTLER_GATEWAY__URL to enable)
             .set_default("gateway.chain_id", 421614u64)?
-            .set_default("gateway.url", "")?
+
             .set_default(
                 "gateway.nox_compute_address",
                 "0xd464B198f06756a1d00be223634b85E0a731c229",

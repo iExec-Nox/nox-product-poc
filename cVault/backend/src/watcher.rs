@@ -108,6 +108,7 @@ where
             .event_signature(topics.clone())
             .from_block(from_block)
             .to_block(to_block);
+        info!(from_block, to_block, "fetching logs");
 
         let getlogs_start = std::time::Instant::now();
         let logs = tokio::select! {
