@@ -20,6 +20,12 @@ const NAV: NavItem[] = [
   { href: "/discover", label: "Vaults", match: (p) => p.startsWith("/discover") || p.startsWith("/vault") },
   { href: "/account", label: "Account", match: (p) => p.startsWith("/account") },
   { href: "https://docs.iex.ec/", label: "Docs", match: () => false, external: true },
+  {
+    href: "https://github.com/iExec-Nox/nox-product-poc/tree/main/cVault",
+    label: "GitHub",
+    match: () => false,
+    external: true,
+  },
 ];
 
 export function TestnetBanner() {
