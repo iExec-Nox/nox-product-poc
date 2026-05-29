@@ -236,9 +236,31 @@ export default function LandingPage() {
           font: "500 11px/16px var(--ct-font-ui)",
           letterSpacing: "0.4px",
           color: "var(--ct-fg-6)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 10,
         }}
       >
-        Powered by iExec Nox · Arbitrum
+        <a
+          href="https://github.com/iExec-Nox/nox-product-poc/tree/main/cVault"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            color: "var(--ct-fg-4)",
+            textDecoration: "none",
+            font: "600 12px/16px var(--ct-font-ui)",
+            letterSpacing: "0.2px",
+          }}
+        >
+          <MI name="code" size={14} color="var(--ct-fg-4)" />
+          GitHub
+          <MI name="open_in_new" size={11} color="var(--ct-fg-5)" />
+        </a>
+        <div>Powered by iExec Nox · Arbitrum</div>
       </div>
     </div>
   );
