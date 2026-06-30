@@ -1,0 +1,47 @@
+# Nox Confidential Token Demo
+
+> A web3 frontend demo showcasing the Nox confidential computing protocol on Arbitrum Sepolia testnet. Users can mint, transfer, and audit private tokens (cTokens) using encrypted balances powered by Trusted Execution Environments (TEE). Built with Next.js, wagmi, and the Nox SDK.
+
+Nox implements the ERC-7984 standard for confidential tokens. Public ERC-20 tokens (e.g. RLC) can be wrapped into confidential equivalents (e.g. cRLC) where balances are stored as encrypted handles on-chain. Only the token owner — or explicitly authorized viewers — can decrypt and read the balance.
+
+Key concepts:
+- **Confidential Token (cToken):** An ERC-7984 token whose balance is encrypted on-chain as a `bytes32` handle, not a readable number.
+- **Handle:** An opaque reference to an encrypted value, generated and managed by the NoxCompute TEE. Handles change after every balance-altering operation (wrap, unwrap, transfer).
+- **HandleClient:** Client-side SDK (`@iexec-nox/handle`) providing `encryptInput()` and `decrypt()` — uses Web Crypto API, browser-only.
+- **NoxCompute:** TEE proxy contract for access control (addViewer/isViewer). Viewer access is per-handle, not per-token.
+- **Wrap:** Lock public ERC-20 → mint confidential cToken (1:1 ratio). Amount sent in cleartext, encrypted by the gateway.
+- **Unwrap:** Burn cToken → release public ERC-20. Two-step process (unwrap + finalizeUnwrap) with encrypted input.
+- **Confidential Transfer:** Send cTokens to another address with the amount encrypted via `encryptInput()`. Recipient address is public.
+- **Selective Disclosure:** Grant a third party (auditor, regulator) read-only access to a specific balance handle via `addViewer()`.
+
+Chain: Arbitrum Sepolia (chainId 421614)
+Token standard: ERC-7984
+Stack: Next.js 16, Tailwind CSS v4, shadcn/ui, wagmi v2, viem, Reown AppKit
+
+## Workflow Guides
+
+- [Wrap — ERC-20 to Confidential Token](https://github.com/iExec-Nox/demo-ctoken/blob/main/docs/workflows/wrap.md): Step-by-step flow for converting public tokens into confidential tokens. Covers approve + wrap, gas estimation, and handle generation.
+- [Unwrap — Confidential Token to ERC-20](https://github.com/iExec-Nox/demo-ctoken/blob/main/docs/workflows/unwrap.md): Two-step process (encrypt → unwrap → finalizeUnwrap) with event decoding and retry mechanism for tokens in transit.
+- [Confidential Transfer](https://github.com/iExec-Nox/demo-ctoken/blob/main/docs/workflows/transfer.md): Sending cTokens with encrypted amounts via encryptInput(). Single transaction, recipient address public.
+- [Selective Disclosure / ACL](https://github.com/iExec-Nox/demo-ctoken/blob/main/docs/workflows/selective-disclosure.md): Granting auditor access to encrypted balances via NoxCompute.addViewer(). Per-handle, no batch, no revoke yet.
+
+## Smart Contracts (Arbitrum Sepolia)
+
+- [RLC Token](https://sepolia.arbiscan.io/address/0x9923eD3cbd90CD78b910c475f9A731A6e0b8C963): Public ERC-20 token (decimals: 9)
+- [cRLC Token](https://sepolia.arbiscan.io/address/0x271f46e78f2fe59817854dabde47729ac4935765): Confidential ERC-7984 token (decimals: 9). Functions: wrap, unwrap, finalizeUnwrap, confidentialTransfer, confidentialBalanceOf
+- [NoxCompute Proxy](https://sepolia.arbiscan.io/address/0x5633472D35E18464CA24Ab974954fB3b1B122eA6): ACL contract. Functions: addViewer(handle, viewer), isViewer(handle, viewer)
+
+## Source Code
+
+- [Contract addresses](https://github.com/iExec-Nox/demo-ctoken/blob/main/lib/contracts.ts): Single source of truth for all deployed contract addresses
+- [Token registry](https://github.com/iExec-Nox/demo-ctoken/blob/main/lib/tokens.ts): Token configuration with automatic confidential token derivation
+- [Confidential Token ABI](https://github.com/iExec-Nox/demo-ctoken/blob/main/lib/confidential-token-abi.ts): ERC-7984 ABI (wrap, unwrap, finalizeUnwrap, confidentialTransfer, confidentialBalanceOf)
+- [NoxCompute ABI](https://github.com/iExec-Nox/demo-ctoken/blob/main/lib/nox-compute-abi.ts): ACL ABI (addViewer, isViewer)
+- [Gas utilities](https://github.com/iExec-Nox/demo-ctoken/blob/main/lib/gas.ts): EIP-1559 gas estimation with 20% buffer for Arbitrum
+
+## Transaction Hooks
+
+- [useWrap](https://github.com/iExec-Nox/demo-ctoken/blob/main/hooks/use-wrap.ts): Approve + wrap flow (cleartext amount)
+- [useUnwrap](https://github.com/iExec-Nox/demo-ctoken/blob/main/hooks/use-unwrap.ts): Encrypt → unwrap → finalize flow (2-step with event decoding)
+- [useConfidentialTransfer](https://github.com/iExec-Nox/demo-ctoken/blob/main/hooks/use-confidential-transfer.ts): Encrypt → transfer flow
+- [useAddViewer](https://github.com/iExec-Nox/demo-ctoken/blob/main/hooks/use-add-viewer.ts): Read handle → grant viewer access flow
