@@ -1,0 +1,391 @@
+@import "tailwindcss";
+
+/* ─── shadcn/tailwind.css (inlined) ─── */
+@theme inline {
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height, var(--accordion-panel-height, auto)); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height, var(--accordion-panel-height, auto)); }
+    to { height: 0; }
+  }
+}
+
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) { @slot; }
+}
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) { @slot; }
+}
+@custom-variant data-checked {
+  &:where([data-state="checked"]),
+  &:where([data-checked]:not([data-checked="false"])) { @slot; }
+}
+@custom-variant data-unchecked {
+  &:where([data-state="unchecked"]),
+  &:where([data-unchecked]:not([data-unchecked="false"])) { @slot; }
+}
+@custom-variant data-selected {
+  &:where([data-selected="true"]) { @slot; }
+}
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]),
+  &:where([data-disabled]:not([data-disabled="false"])) { @slot; }
+}
+@custom-variant data-active {
+  &:where([data-state="active"]),
+  &:where([data-active]:not([data-active="false"])) { @slot; }
+}
+@custom-variant data-horizontal {
+  &:where([data-orientation="horizontal"]) { @slot; }
+}
+@custom-variant data-vertical {
+  &:where([data-orientation="vertical"]) { @slot; }
+}
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* ─── Dark mode variant ─── */
+@custom-variant dark (&:is(.dark *));
+
+/* ════════════════════════════════════════
+   Light mode (default)
+   ════════════════════════════════════════ */
+:root {
+  /* Nox custom tokens */
+  --background: #e5eaf4;
+  --foreground: #111827;
+  --surface: #edf0f8;
+  --surface-border: #c0c6d8;
+  --text-heading: #111827;
+  --text-body: #6b7280;
+  --text-muted: #9ca3af;
+  --primary: #748eff;
+  --primary-hover: #6378e6;
+  --primary-alpha-18: rgba(116, 142, 255, 0.18);
+  --primary-alpha-border: rgba(71, 37, 244, 0.2);
+  --ghost-btn-bg: #6b6b78;
+  --ghost-btn-border: transparent;
+  --ghost-btn-text: #ffffff;
+  --dropdown-bg: #ffffff;
+  --dropdown-text: #111827;
+  --dropdown-link: #748eff;
+  --topbar-border: rgba(0, 0, 0, 0.05);
+  --logo-text: #111827;
+  --footer-text: #64748b;
+  --footer-muted: #9ca3af;
+  --footer-logo-text: #6b7280;
+  --decrypt-warning: #bf3131;
+  --card-icon-bg: #748eff;
+  --toggle-track: #b8bdd0;
+  --toggle-thumb: #e5eaf4;
+  --asset-card-bg: #edf0f8;
+  --asset-card-border: #c0c6d8;
+  --asset-icon-bg: #e2e6f0;
+  --asset-text-secondary: #6b7280;
+  --asset-text-tertiary: #9ca3af;
+  --info-banner-bg: rgba(116, 142, 255, 0.15);
+  --info-banner-border: rgba(71, 37, 244, 0.2);
+  --action-btn-active-bg: rgba(116, 142, 255, 0.68);
+  --action-btn-active-border: rgba(255, 255, 255, 0.05);
+  --action-center-bg: #e3ecff;
+  --action-center-border: rgba(255, 255, 255, 0.08);
+  --privacy-card-bg: rgba(255, 255, 255, 0.56);
+  --privacy-card-border: rgba(255, 255, 255, 0.05);
+  --asset-list-bg: rgba(255, 255, 255, 0.08);
+  --asset-list-border: rgba(255, 255, 255, 0.76);
+  --feature-card-bg: rgba(255, 255, 255, 0.25);
+  --feature-card-border: rgba(255, 255, 255, 0.08);
+  --row-divider: #ffffff;
+  --toggle-icon: #5d5d69;
+  --token-selector-bg: rgba(30, 41, 59, 0.5);
+  --token-selector-border: rgba(255, 255, 255, 0.05);
+  --modal-bg: #ffffff;
+  --modal-border: rgba(0, 0, 0, 0.1);
+  --tx-success-bg: rgba(34, 197, 94, 0.15);
+  --tx-success-text: #16a34a;
+  --tx-error-bg: rgba(239, 68, 68, 0.15);
+  --tx-error-text: #dc2626;
+  --tx-pending-bg: rgba(234, 179, 8, 0.15);
+  --tx-pending-text: #ca8a04;
+  --code-text: #5b7fbf;
+
+  /* shadcn tokens (mapped to Nox theme) */
+  --primary-foreground: #ffffff;
+  --card: #edf0f8;
+  --card-foreground: #111827;
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+  --secondary: #e2e6f0;
+  --secondary-foreground: #111827;
+  --muted: #e2e6f0;
+  --muted-foreground: #6b7280;
+  --accent: #e2e6f0;
+  --accent-foreground: #111827;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #c0c6d8;
+  --input: #c0c6d8;
+  --ring: #748eff;
+  --radius: 0.625rem;
+
+  /* shadcn chart & sidebar (defaults) */
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: #edf0f8;
+  --sidebar-foreground: #111827;
+  --sidebar-primary: #748eff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e2e6f0;
+  --sidebar-accent-foreground: #111827;
+  --sidebar-border: #c0c6d8;
+  --sidebar-ring: #748eff;
+}
+
+/* ════════════════════════════════════════
+   Dark mode
+   ════════════════════════════════════════ */
+.dark {
+  /* Nox custom tokens */
+  --background: #0f1119;
+  --foreground: #ededed;
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --text-heading: #ffffff;
+  --text-body: #94a3b8;
+  --text-muted: #64748b;
+  --primary: #748eff;
+  --primary-hover: #6378e6;
+  --primary-alpha-18: rgba(116, 142, 255, 0.18);
+  --primary-alpha-border: rgba(71, 37, 244, 0.2);
+  --ghost-btn-bg: rgba(255, 255, 255, 0.03);
+  --ghost-btn-border: rgba(255, 255, 255, 0.08);
+  --ghost-btn-text: #ffffff;
+  --dropdown-bg: #2b2b2f;
+  --dropdown-text: #ffffff;
+  --dropdown-link: #748eff;
+  --topbar-border: rgba(255, 255, 255, 0.05);
+  --logo-text: #f1f5f9;
+  --footer-text: #64748b;
+  --footer-muted: #64748b;
+  --footer-logo-text: #94a3b8;
+  --decrypt-warning: #bf3131;
+  --card-icon-bg: #748eff;
+  --toggle-track: #2a2a35;
+  --toggle-thumb: #1a1a24;
+  --asset-card-bg: #1d1d24;
+  --asset-card-border: rgba(255, 255, 255, 0.08);
+  --asset-icon-bg: rgba(255, 255, 255, 0.08);
+  --asset-text-secondary: #94a3b8;
+  --asset-text-tertiary: #64748b;
+  --info-banner-bg: rgba(116, 142, 255, 0.27);
+  --info-banner-border: rgba(71, 37, 244, 0.2);
+  --action-btn-active-bg: rgba(116, 142, 255, 0.4);
+  --action-btn-active-border: rgba(255, 255, 255, 0.05);
+  --action-center-bg: rgba(255, 255, 255, 0.03);
+  --action-center-border: rgba(255, 255, 255, 0.08);
+  --privacy-card-bg: rgba(255, 255, 255, 0.03);
+  --privacy-card-border: rgba(255, 255, 255, 0.08);
+  --asset-list-bg: #1d1d24;
+  --asset-list-border: rgba(255, 255, 255, 0.08);
+  --feature-card-bg: rgba(255, 255, 255, 0.03);
+  --feature-card-border: rgba(255, 255, 255, 0.08);
+  --row-divider: rgba(255, 255, 255, 0.08);
+  --toggle-icon: #64748b;
+  --token-selector-bg: rgba(30, 41, 59, 0.5);
+  --token-selector-border: rgba(255, 255, 255, 0.05);
+  --modal-bg: #24242b;
+  --modal-border: rgba(255, 255, 255, 0.1);
+  --tx-success-bg: rgba(34, 197, 94, 0.2);
+  --tx-success-text: #4ade80;
+  --tx-error-bg: rgba(239, 68, 68, 0.2);
+  --tx-error-text: #f87171;
+  --tx-pending-bg: rgba(234, 179, 8, 0.2);
+  --tx-pending-text: #facc15;
+  --code-text: #94c1ff;
+
+  /* shadcn tokens (mapped to Nox dark theme) */
+  --primary-foreground: #ffffff;
+  --card: rgba(255, 255, 255, 0.05);
+  --card-foreground: #ededed;
+  --popover: #1a1a24;
+  --popover-foreground: #ededed;
+  --secondary: rgba(255, 255, 255, 0.08);
+  --secondary-foreground: #ededed;
+  --muted: rgba(255, 255, 255, 0.08);
+  --muted-foreground: #64748b;
+  --accent: rgba(255, 255, 255, 0.08);
+  --accent-foreground: #ededed;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #748eff;
+
+  /* shadcn chart & sidebar (dark) */
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: #0f1119;
+  --sidebar-foreground: #ededed;
+  --sidebar-primary: #748eff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #ededed;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #748eff;
+}
+
+/* ════════════════════════════════════════
+   Tailwind v4 theme registration
+   ════════════════════════════════════════ */
+@theme inline {
+  /* Core */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* Nox custom tokens */
+  --color-surface: var(--surface);
+  --color-surface-border: var(--surface-border);
+  --color-text-heading: var(--text-heading);
+  --color-text-body: var(--text-body);
+  --color-text-muted: var(--text-muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-alpha-18: var(--primary-alpha-18);
+  --color-primary-alpha-border: var(--primary-alpha-border);
+  --color-ghost-btn-bg: var(--ghost-btn-bg);
+  --color-ghost-btn-border: var(--ghost-btn-border);
+  --color-ghost-btn-text: var(--ghost-btn-text);
+  --color-dropdown-bg: var(--dropdown-bg);
+  --color-dropdown-text: var(--dropdown-text);
+  --color-dropdown-link: var(--dropdown-link);
+  --color-topbar-border: var(--topbar-border);
+  --color-logo-text: var(--logo-text);
+  --color-footer-text: var(--footer-text);
+  --color-footer-muted: var(--footer-muted);
+  --color-footer-logo-text: var(--footer-logo-text);
+  --color-decrypt-warning: var(--decrypt-warning);
+  --color-card-icon-bg: var(--card-icon-bg);
+  --color-toggle-track: var(--toggle-track);
+  --color-toggle-thumb: var(--toggle-thumb);
+  --color-asset-card-bg: var(--asset-card-bg);
+  --color-asset-card-border: var(--asset-card-border);
+  --color-asset-icon-bg: var(--asset-icon-bg);
+  --color-asset-text-secondary: var(--asset-text-secondary);
+  --color-asset-text-tertiary: var(--asset-text-tertiary);
+  --color-info-banner-bg: var(--info-banner-bg);
+  --color-info-banner-border: var(--info-banner-border);
+  --color-action-btn-active-bg: var(--action-btn-active-bg);
+  --color-action-btn-active-border: var(--action-btn-active-border);
+  --color-action-center-bg: var(--action-center-bg);
+  --color-action-center-border: var(--action-center-border);
+  --color-privacy-card-bg: var(--privacy-card-bg);
+  --color-privacy-card-border: var(--privacy-card-border);
+  --color-asset-list-bg: var(--asset-list-bg);
+  --color-asset-list-border: var(--asset-list-border);
+  --color-feature-card-bg: var(--feature-card-bg);
+  --color-feature-card-border: var(--feature-card-border);
+  --color-row-divider: var(--row-divider);
+  --color-toggle-icon: var(--toggle-icon);
+  --color-token-selector-bg: var(--token-selector-bg);
+  --color-token-selector-border: var(--token-selector-border);
+  --color-modal-bg: var(--modal-bg);
+  --color-modal-border: var(--modal-border);
+  --color-tx-success-bg: var(--tx-success-bg);
+  --color-tx-success-text: var(--tx-success-text);
+  --color-tx-error-bg: var(--tx-error-bg);
+  --color-tx-error-text: var(--tx-error-text);
+  --color-tx-pending-bg: var(--tx-pending-bg);
+  --color-tx-pending-text: var(--tx-pending-text);
+  --color-code-text: var(--code-text);
+
+  /* shadcn tokens */
+  --color-primary-foreground: var(--primary-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Radii */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  /* Fonts */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-mulish: var(--font-mulish);
+  --font-anybody: var(--font-anybody);
+  --font-inter: var(--font-inter);
+}
+
+/* ════════════════════════════════════════
+   Base styles
+   ════════════════════════════════════════ */
+html {
+  background: var(--background);
+  transition: background-color 0.2s ease;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ════════════════════════════════════════
+   Animations
+   ════════════════════════════════════════ */
+@keyframes dropdown-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ════════════════════════════════════════
+   Theme toggle custom thumb positioning
+   ════════════════════════════════════════ */
+.theme-toggle [data-slot="switch-thumb"] {
+  transform: none !important;
+  transition: translate 0.2s ease !important;
+}
+.theme-toggle [data-slot="switch-thumb"][data-state="unchecked"] {
+  translate: 2px 0 !important;
+}
+.theme-toggle [data-slot="switch-thumb"][data-state="checked"] {
+  translate: 17px 0 !important;
+}
